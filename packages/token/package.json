@@ -1,0 +1,19 @@
+{
+  "name": "@clasp/token",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clasp/protocol": "workspace:*",
+    "@noble/ed25519": "^2.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
