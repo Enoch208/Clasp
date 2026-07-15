@@ -1,0 +1,22 @@
+@import "tailwindcss";
+@import "./styles/hover-grid.css";
+@import "./styles/landing.css";
+@import "./styles/clasp.css";
+
+@theme inline {
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+@layer base {
+  button:not(:disabled),
+  a,
+  [role="button"] {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+}

@@ -1,0 +1,105 @@
+.clasp-mark {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border: var(--of-line);
+  border-radius: 12px;
+  background: var(--of-blue);
+  box-shadow: 4px 4px 0 var(--of-ink);
+  position: relative;
+}
+.clasp-mark::before,
+.clasp-mark::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 20px;
+  border: 3px solid var(--of-ink);
+  border-radius: 999px;
+  transform: translateY(-50%);
+}
+.clasp-mark::before {
+  left: 7px;
+  border-right-color: transparent;
+}
+.clasp-mark::after {
+  right: 7px;
+  border-left-color: transparent;
+}
+
+.of-header-nav {
+  display: flex;
+  align-items: stretch;
+}
+.of-header-nav button {
+  padding: 0 16px;
+  border-left: var(--of-line);
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--of-muted);
+  background: var(--of-paper);
+  transition: background 140ms, color 140ms;
+}
+.of-header-nav button:hover,
+.of-header-nav button.active {
+  color: var(--of-ink);
+  background: var(--of-warm);
+}
+
+@media (max-width: 900px) {
+  .of-header-nav {
+    display: none;
+  }
+}
+
+.clasp-wordmark {
+  position: absolute;
+  z-index: 1;
+  top: 8%;
+  right: -6%;
+  margin: 0;
+  transform: rotate(-7deg);
+  font-family: var(--font-display, ui-sans-serif), sans-serif;
+  font-weight: 900;
+  font-size: clamp(4rem, 12vw, 9rem);
+  line-height: 0.8;
+  letter-spacing: -0.06em;
+  color: var(--of-paper);
+  text-shadow: 9px 11px 0 var(--of-ink);
+}
+.clasp-wordmark span {
+  display: block;
+  color: var(--of-yellow);
+}
+.clasp-wordmark small {
+  display: block;
+  margin-top: 18px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  color: var(--of-blue);
+  text-shadow: none;
+  text-transform: uppercase;
+}
+
+html,
+body {
+  overflow-x: hidden;
+}
+
+.of-hero-flow > *,
+.of-demo > *,
+.of-stack-content > *,
+.of-flow-grid > *,
+.of-feature-grid > *,
+.of-demo-chain > * {
+  min-width: 0;
+}
+
+.of-section-top span,
+.of-kicker,
+.of-feature h3.mono {
+  overflow-wrap: anywhere;
+}

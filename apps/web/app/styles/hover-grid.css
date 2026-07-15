@@ -1,0 +1,28 @@
+.hover-grid-background,
+.hover-grid-background-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hover-grid-background-canvas {
+  display: block;
+}
+
+.hero-hover-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--hero-grid-columns), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--hero-grid-rows), minmax(0, 1fr));
+  pointer-events: none;
+}
+
+.hero-hover-grid > span {
+  border-right: 1px solid var(--hero-grid-border);
+  border-bottom: 1px solid var(--hero-grid-border);
+  background: transparent;
+}
+
+.hero-hover-grid > span.is-active {
+  background: color-mix(in oklch, var(--hero-grid-active) 72%, white);
+}
