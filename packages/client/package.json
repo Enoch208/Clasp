@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@clasp/protocol": "workspace:*"
+    "@clasp/protocol": "workspace:*",
+    "@clasp/token": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

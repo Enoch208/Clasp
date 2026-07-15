@@ -8,6 +8,10 @@ function encodeInvoice(params: NewInvoiceParams): string {
   return INVOICE_PREFIX + Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
 }
 
+export function encodeFakeInvoice(amount: string, asset: string, memo?: string): string {
+  return encodeInvoice(memo !== undefined ? { amount, asset, memo } : { amount, asset });
+}
+
 function decodeInvoice(invoice: string): Invoice {
   if (!invoice.startsWith(INVOICE_PREFIX)) {
     throw new Error(`unrecognized invoice: ${invoice}`);

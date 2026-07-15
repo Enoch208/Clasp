@@ -9,7 +9,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@clasp/gateway": "workspace:*",
     "@clasp/protocol": "workspace:*",
+    "@clasp/token": "workspace:*",
+    "@clasp/wallet-core": "workspace:*",
     "express": "^5.1.0",
     "zod": "^3.23.8"
   },

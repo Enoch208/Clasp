@@ -1,4 +1,5 @@
 export { canonicalize } from "./canonicalize";
+export { publicKeyFromPrivate } from "./ed25519";
 export {
   generateKeypair,
   signSession,

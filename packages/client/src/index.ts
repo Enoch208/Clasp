@@ -1,3 +1,2 @@
 export * from "./client";
-export { generateKeypair, publicFromPrivate, canonicalize } from "./crypto";
-export type { Keypair } from "./crypto";
+export { generateKeypair, publicKeyFromPrivate, canonicalize, type Keypair } from "@clasp/token";

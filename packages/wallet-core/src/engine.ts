@@ -84,8 +84,8 @@ export async function evaluate(
     return claspError("replay_detected", { requestId: request.requestId, nonce: request.nonce });
   }
 
-  // Step 6 — timestamp is within the freshness window.
-  if (Math.abs(now - request.timestamp) > FRESHNESS_WINDOW_MS) {
+  // Step 6 — timestamp (seconds, per the protocol wire format) within the freshness window.
+  if (Math.abs(now - request.timestamp * 1000) > FRESHNESS_WINDOW_MS) {
     return claspError("stale_timestamp", { now, timestamp: request.timestamp });
   }
 

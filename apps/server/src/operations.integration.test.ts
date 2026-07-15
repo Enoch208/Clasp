@@ -3,14 +3,16 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { ClaspErrorException } from "@clasp/protocol";
 import { createClaspClient } from "@clasp/client";
+import { Store } from "@clasp/wallet-core";
+import { FakeGateway, encodeFakeInvoice } from "@clasp/gateway";
+import { generateKeypair } from "@clasp/token";
 import { createApp } from "./app";
-import { createStubWalletCore } from "./stub/wallet-core";
-import { createFakeGateway, fakeInvoice } from "./stub/gateway";
-import { generateKeypair } from "./stub/crypto";
+import { createWalletCore } from "./clasp-wallet-core";
 
 const ORIGIN = "https://weather.example";
 const ASSET = "CKB";
 const START = Date.parse("2026-07-15T20:00:00Z");
+const fakeInvoice = (asset: string, amount: string) => encodeFakeInvoice(amount, asset);
 
 describe("client SDK drives POST /operations end-to-end", () => {
   let server: Server;
@@ -21,8 +23,9 @@ describe("client SDK drives POST /operations end-to-end", () => {
   beforeEach(async () => {
     now = START;
     walletKeys = generateKeypair();
-    const gateway = createFakeGateway({ now: () => now });
-    const walletCore = createStubWalletCore({ gateway, walletKeys, now: () => now });
+    const gateway = new FakeGateway();
+    const store = new Store();
+    const walletCore = createWalletCore({ store, gateway, walletKeys, now: () => now });
     server = createApp(walletCore).listen(0);
     await new Promise<void>((resolve) => server.once("listening", resolve));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

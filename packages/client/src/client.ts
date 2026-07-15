@@ -7,7 +7,7 @@ import {
   type OperationResult,
   type SessionState,
 } from "@clasp/protocol";
-import { generateKeypair, signRequest, type Keypair } from "./crypto";
+import { generateKeypair, signRequest, type Keypair } from "@clasp/token";
 
 export type ClaspEvent = "revoked";
 

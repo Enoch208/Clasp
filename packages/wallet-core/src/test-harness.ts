@@ -62,7 +62,7 @@ export function newHarness(sessionOverrides: Partial<SessionFacts> = {}): Harnes
       operation: options.operation ?? "payments:request",
       parameters: { invoice, amount: options.amount, asset },
       nonce: options.nonce,
-      timestamp: options.timestamp ?? NOW,
+      timestamp: options.timestamp ?? Math.floor(NOW / 1000),
     };
     return { ...unsigned, signature: signRequest(unsigned, options.signWith ?? app.privateKey) };
   }

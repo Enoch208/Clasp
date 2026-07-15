@@ -1,14 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
+import type { OperationRequest } from "@clasp/protocol";
 import { createApp } from "./app";
-import { createStubWalletCore } from "./stub/wallet-core";
-import { createFakeGateway, fakeInvoice } from "./stub/gateway";
-import { generateKeypair, signRequest, verifyResult } from "./stub/crypto";
+import { Store } from "@clasp/wallet-core";
+import { FakeGateway, encodeFakeInvoice } from "@clasp/gateway";
+import { generateKeypair, signRequest, verifyResult } from "@clasp/token";
+import { createWalletCore } from "./clasp-wallet-core";
 
 const ORIGIN = "https://weather.example";
 const ASSET = "CKB";
 const START = Date.parse("2026-07-15T20:00:00Z");
+const fakeInvoice = (asset: string, amount: string) => encodeFakeInvoice(amount, asset);
 
 function facts(appPubKey: string) {
   return {
@@ -33,8 +36,9 @@ describe("clasp server", () => {
     now = START;
     walletKeys = generateKeypair();
     appKeys = generateKeypair();
-    const gateway = createFakeGateway({ now: () => now });
-    const walletCore = createStubWalletCore({ gateway, walletKeys, now: () => now });
+    const gateway = new FakeGateway();
+    const store = new Store();
+    const walletCore = createWalletCore({ store, gateway, walletKeys, now: () => now });
     server = createApp(walletCore).listen(0);
     await new Promise<void>((resolve) => server.once("listening", resolve));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -60,7 +64,7 @@ describe("clasp server", () => {
 
   function signedOperation(
     sessionId: string,
-    operation: string,
+    operation: OperationRequest["operation"],
     parameters: Record<string, unknown>,
     nonce: number,
   ) {
