@@ -2,6 +2,7 @@
 @import "./styles/hover-grid.css";
 @import "./styles/landing.css";
 @import "./styles/clasp.css";
+@import "./styles/app.css";
 
 @theme inline {
   --font-sans: var(--font-inter);

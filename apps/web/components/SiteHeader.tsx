@@ -77,7 +77,7 @@ export function SiteHeader() {
             </button>
           ))}
         </nav>
-        <Link className="of-header-launch" href="#start">
+        <Link className="of-header-launch" href="/demo">
           <span className="of-header-launch-icon" aria-hidden="true">
             <ArrowRight />
           </span>
@@ -105,7 +105,7 @@ export function SiteHeader() {
             {label}
           </button>
         ))}
-        <Link href="#start" onClick={() => setMobileMenuOpen(false)}>
+        <Link href="/demo" onClick={() => setMobileMenuOpen(false)}>
           Try the demo
         </Link>
       </div>
