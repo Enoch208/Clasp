@@ -10,17 +10,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repo reality vs. the PRD
 
-The PRD describes the *target* — a pnpm monorepo (`packages/{protocol,client,wallet-core,token,gateway}`, `apps/{wallet,demo-dapp,server}`, `tests/`). **None of the backend/protocol packages exist yet.** Current state: no commits, and a single `frontend/` Next.js 16 app (React 19, Tailwind v4, TypeScript, npm) containing the marketing **landing page** (`app/page.tsx` + `components/` + `app/styles/*.css`). Its editorial/neo-brutalist design system was ported from an external template and lives as plain CSS (`landing.css`, `clasp.css`, `hover-grid.css`) under the `.overflow-theme` root class; icons go through the single wrapper `components/icons.ts` (lucide-react). The product surfaces (wallet approval, dashboard, security lab, demo dApp) and all `packages/*` are still to be built — follow the PRD §18 layout and package responsibilities; don't invent a different structure.
+The pnpm monorepo is scaffolded and Spec 1 (backend spine + policy core) is built and integrated. Present:
+- `packages/protocol` — schemas, permission vocab, error codes, BigInt money math, state machine (the single source of truth; everything imports it).
+- `packages/token` — Ed25519 (`@noble/ed25519`, sha512 via `node:crypto`): `canonicalize`, `signSession`/`verifySession`, `signRequest`/`verifyRequest`, `signResult`. **Node-only today** (browser needs `@noble/hashes/sha512` — a Spec-4 concern once `apps/web` uses the real client).
+- `packages/gateway` — `Gateway` interface (exactly `newInvoice`/`getInvoice`/`sendPayment`/`getPayment`), `FakeGateway` (default), `FnnGateway` (throws until Spec 4).
+- `packages/wallet-core` — SQLite `Store` (`better-sqlite3`; `UNIQUE(session_id,nonce)` + `UNIQUE(request_id)`) and `evaluate()` (the 10-step engine, atomic reserve-then-settle).
+- `packages/client` — the SDK (`createClaspClient` → `connect()` + `requestPayment()`), signs every request with `@clasp/token`.
+- `apps/server` — Express spine; `createApp(walletCore)` depends only on the `WalletCore` interface, and `clasp-wallet-core.ts` implements it over the real packages. `FakeGateway` injected; `DEMO MODE` banner.
+- `apps/web` — Next.js 16 marketing **landing** + four **product surfaces** (`/wallet`, `/dashboard`, `/lab`, `/demo`) on the ported editorial/neo-brutalist design (plain CSS under `.overflow-theme`: `landing.css`, `app.css`, `clasp.css`, `hover-grid.css`; icons via the single `components/icons.ts`). **It still runs on `lib/mockStore.ts`** (which reuses `@clasp/protocol`'s error factory + money math) — wiring `@clasp/client` in is the next step; flip the banner to `REAL` when `CLASP_FNN_URL` is set.
+
+Convention reconciled during integration: `OperationRequest.timestamp` is in **seconds** (per PRD §9 wire format); `evaluate` multiplies by 1000 to compare against `now` (ms). Real `FnnGateway` + VPS deploy is still Spec 4; delegation is Spec 5.
 
 ## Commands
 
-Run inside `frontend/` (the only buildable code today; uses **npm**, not pnpm yet):
+Everything runs through the pnpm workspace from the repo root:
 
 ```bash
-npm run dev      # dev server on :3000
-npm run build    # production build — the real "does it compile" check
-npm run lint     # eslint (flat config, React 19 purity rules are strict)
+pnpm install                     # links workspace; builds better-sqlite3 (in onlyBuiltDependencies)
+pnpm -r --if-present run typecheck   # tsc --noEmit across all packages
+pnpm test                        # vitest: protocol/token/gateway/wallet-core/client/server
+pnpm --filter @clasp/web test    # apps/web logic tests (its own vitest config)
+pnpm --filter @clasp/web build   # Next production build (React 19 purity lint is strict)
+pnpm --filter @clasp/server start    # boot the Express server (tsx); reads CLASP_WALLET_PRIVATE_KEY
 ```
+
+`pnpm verify` (root) chains typecheck + test + web build. Internal packages export TypeScript source (`"exports": "./src/index.ts"`) — no per-package build step; vitest/tsx read TS natively and Next uses `transpilePackages`.
 
 The PRD's `pnpm verify` (build all packages + full test suite) is the intended top-level gate once the monorepo exists; it does not run yet.
 
