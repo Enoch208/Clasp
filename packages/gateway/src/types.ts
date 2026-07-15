@@ -5,12 +5,14 @@ export interface Invoice {
   memo?: string;
 }
 
+export type PaymentStatus = "settled" | "failed" | "pending";
+
 export interface Payment {
   paymentHash: string;
   invoice: string;
   amount: string;
   asset: string;
-  status: "settled" | "failed";
+  status: PaymentStatus;
 }
 
 export interface NewInvoiceParams {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { FakeGateway, FnnGateway, GATEWAY_METHODS } from "./index";
+import { FakeGateway, GATEWAY_METHODS } from "./index";
 
 describe("FakeGateway invoices", () => {
   it("creates a self-describing invoice carrying its amount and asset", async () => {
@@ -67,12 +67,5 @@ describe("gateway surface is exactly the four allow-listed methods", () => {
     for (const forbidden of ["call", "request", "rpc", "raw", "rawRpc", "invoke", "send", "exec"]) {
       expect(gw[forbidden]).toBeUndefined();
     }
-  });
-});
-
-describe("FnnGateway skeleton", () => {
-  it("implements the interface but is not wired in Spec 1", async () => {
-    const gw = new FnnGateway({ url: "http://localhost:8227" });
-    await expect(gw.newInvoice({ amount: "1", asset: "BTC" })).rejects.toThrow(/not implemented/i);
   });
 });
