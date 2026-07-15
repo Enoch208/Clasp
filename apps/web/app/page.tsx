@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { type ReactNode, useId, useRef, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { HoverGridBackground } from "@/components/HoverGridBackground";
@@ -50,6 +51,7 @@ const faqs = [
 export default function Home() {
   const heroArtRef = useRef<HTMLDivElement | null>(null);
   const securityRef = useRef<HTMLElement | null>(null);
+  const router = useRouter();
 
   return (
     <main className="overflow-theme intro-done">
@@ -70,8 +72,12 @@ export default function Home() {
               private keys.
             </p>
             <div className="of-hero-actions">
-              <LandingActionButton tone="dark">Try the demo</LandingActionButton>
-              <LandingActionButton tone="yellow">Read the protocol</LandingActionButton>
+              <LandingActionButton tone="dark" onClick={() => router.push("/demo")}>
+                Try the demo
+              </LandingActionButton>
+              <LandingActionButton tone="yellow" onClick={() => router.push("/wallet")}>
+                See the wallet
+              </LandingActionButton>
             </div>
             <div className="of-safety-notes">
               <p className="of-safety-line">
@@ -253,11 +259,11 @@ export default function Home() {
             <h2>Pair. Review. Pay. Revoke.</h2>
           </div>
           <div className="of-follow-actions">
-            <LandingActionButton tone="dark" size="follow">
+            <LandingActionButton tone="dark" size="follow" onClick={() => router.push("/demo")}>
               Try the demo
             </LandingActionButton>
-            <button className="of-outline-button" type="button">
-              Read the protocol <ArrowUpRight />
+            <button className="of-outline-button" type="button" onClick={() => router.push("/lab")}>
+              Attack the wallet <ArrowUpRight />
             </button>
           </div>
         </div>
