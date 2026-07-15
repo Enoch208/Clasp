@@ -54,9 +54,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@clasp/client':
+        specifier: workspace:*
+        version: link:../../packages/client
       '@clasp/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@clasp/token':
+        specifier: workspace:*
+        version: link:../../packages/token
       lucide-react:
         specifier: ^0.460.0
         version: 0.460.0(react@19.2.4)
@@ -139,6 +145,9 @@ importers:
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
+      '@noble/hashes':
+        specifier: ^1.4.0
+        version: 1.8.0
     devDependencies:
       typescript:
         specifier: ^5.7.0
@@ -700,6 +709,10 @@ packages:
 
   '@noble/ed25519@2.3.0':
     resolution: {integrity: sha512-M7dvXL2B92/M7dw9+gzuydL8qn/jiqNHaoR3Q+cb1q1GHV7uwE17WCyFMG+Y+TZb5izcaXk5TdJRrDUxHXL78A==}
+
+  '@noble/hashes@1.8.0':
+    resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
+    engines: {node: ^14.21.3 || >=16}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -3355,6 +3368,8 @@ snapshots:
     optional: true
 
   '@noble/ed25519@2.3.0': {}
+
+  '@noble/hashes@1.8.0': {}
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:

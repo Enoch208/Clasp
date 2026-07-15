@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
 import { EventList } from "@/components/EventList";
 import { ShieldOff } from "@/components/icons";
-import { useMockStore, runAttack, activeSession, type AttackKind } from "@/lib/mockStore";
+import { useClasp, attack as runAttack, activeSession, type AttackKind } from "@/lib/claspClient";
 import { useNow } from "@/lib/useNow";
 
 const ATTACKS: { kind: AttackKind; title: string; desc: string }[] = [
@@ -20,16 +20,19 @@ const ATTACKS: { kind: AttackKind; title: string; desc: string }[] = [
 ];
 
 export default function SecurityLabPage() {
-  const store = useMockStore();
+  const store = useClasp();
   const now = useNow();
   const session = activeSession(store);
   const [lastError, setLastError] = useState<ClaspError | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const blocked = store.events.filter((event) => event.kind === "blocked");
 
-  const fire = (kind: AttackKind) => {
-    if (!session) return;
-    setLastError(runAttack(session.id, kind));
+  const fire = async (kind: AttackKind) => {
+    if (!session || busy) return;
+    setBusy(true);
+    setLastError(await runAttack(kind));
+    setBusy(false);
   };
 
   return (
@@ -52,15 +55,15 @@ export default function SecurityLabPage() {
       ) : (
         <div className="grid-2">
           <div className="stack-cards">
-            <Card title="Run an attack" right={<Tag tone="muted">{session.app.origin}</Tag>}>
+            <Card title="Run an attack" right={<Tag tone="muted">{session.origin}</Tag>}>
               <div className="attack-list">
-                {ATTACKS.map((attack) => (
-                  <div key={attack.kind} className="attack-row">
+                {ATTACKS.map((item) => (
+                  <div key={item.kind} className="attack-row">
                     <div>
-                      <p className="attack-title">{attack.title}</p>
-                      <p className="attack-desc">{attack.desc}</p>
+                      <p className="attack-title">{item.title}</p>
+                      <p className="attack-desc">{item.desc}</p>
                     </div>
-                    <Button variant="danger" onClick={() => fire(attack.kind)}>
+                    <Button variant="danger" disabled={busy} onClick={() => void fire(item.kind)}>
                       Send
                     </Button>
                   </div>

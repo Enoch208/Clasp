@@ -41,8 +41,15 @@ export interface EvaluateMeta {
   origin: string;
 }
 
+export interface InvoiceResult {
+  invoice: string;
+  amount: string;
+  asset: string;
+}
+
 export interface WalletCore {
   createSession(input: CreateSessionInput): CreateSessionResult;
+  createInvoice(input: { amount: string; asset: string }): Promise<InvoiceResult>;
   getSession(sessionId: string): SessionView | null;
   revoke(sessionId: string): SessionView | null;
   evaluate(request: OperationRequest, meta: EvaluateMeta): Promise<OperationResult | ClaspError>;

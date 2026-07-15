@@ -41,6 +41,10 @@
   background: var(--of-mint);
   color: var(--of-ink);
 }
+.mode-banner.offline {
+  background: var(--danger);
+  color: var(--of-paper);
+}
 .mode-banner i {
   width: 8px;
   height: 8px;

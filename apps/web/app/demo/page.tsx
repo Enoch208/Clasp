@@ -2,25 +2,28 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import type { GrantablePermission } from "@clasp/protocol";
 import { AppShell, SurfaceHead } from "@/components/AppShell";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
 import { CheckCircle2, CloudSun, Link2, Lock, ShieldOff } from "@/components/icons";
-import { useMockStore, requestPayment, activeSession, type PayOutcome } from "@/lib/mockStore";
+import { useClasp, pay, activeSession, type PayOutcome } from "@/lib/claspClient";
 import { formatCkb, translatePermission, shortId } from "@/lib/format";
 import { weatherAgentPairing, weatherReport } from "@/lib/fixtures";
 
 const REPORT_PRICE = "100000000";
 
 export default function DemoDappPage() {
-  const store = useMockStore();
+  const store = useClasp();
   const session = activeSession(store);
   const [outcome, setOutcome] = useState<PayOutcome | null>(null);
+  const [paying, setPaying] = useState(false);
 
-  const pay = () => {
-    if (!session) return;
-    setOutcome(requestPayment(session.id, REPORT_PRICE, weatherReport.title));
+  const onPay = async () => {
+    setPaying(true);
+    setOutcome(await pay(REPORT_PRICE, weatherReport.title));
+    setPaying(false);
   };
 
   const unlocked = outcome?.ok === true;
@@ -68,14 +71,14 @@ export default function DemoDappPage() {
         <div className="grid-2">
           <Card title="Connected" right={<Tag tone="ok">Session active</Tag>}>
             <p className="sess-origin mono">
-              {session.app.origin} · {shortId(session.id)}
+              {session.origin} · {shortId(session.sessionId)}
             </p>
             <p className="demo-reqs-label">Granted capabilities</p>
             <ul className="cap-list">
               {session.permissions.map((permission) => (
                 <li key={permission}>
                   <CheckCircle2 size={16} strokeWidth={2.5} className="cap-tick" />
-                  <span>{translatePermission(permission).title}</span>
+                  <span>{translatePermission(permission as GrantablePermission).title}</span>
                 </li>
               ))}
             </ul>
@@ -145,8 +148,8 @@ export default function DemoDappPage() {
                     {outcome.error.code} — {outcome.error.message}
                   </p>
                 ) : null}
-                <Button variant="accent" block onClick={pay}>
-                  Request payment · {formatCkb(REPORT_PRICE)}
+                <Button variant="accent" block onClick={onPay} disabled={paying}>
+                  {paying ? "Settling…" : `Request payment · ${formatCkb(REPORT_PRICE)}`}
                 </Button>
                 <p className="pay-note">Each payment is checked against the session limits and still shown to you.</p>
               </div>

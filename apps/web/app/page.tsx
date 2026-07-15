@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useId, useRef, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -63,13 +64,11 @@ export default function Home() {
             <p className="of-kicker">
               <span>Fiber Network</span> Category 1 — Wallet &amp; Payment UX Infrastructure
             </p>
-            <h1>Clasp</h1>
+            <h1>CLASP</h1>
             <h2>Connect apps to Fiber wallets. Never hand over the keys.</h2>
             <p className="of-hero-text">
-              Clasp is the secure application-to-wallet session layer for Fiber: a pairing protocol, wallet
-              policy engine, allow-listed gateway, and TypeScript SDK that let any app or AI agent connect with
-              limited, user-edited, time-boxed, revocable authority — instead of permanent RPC credentials or
-              private keys.
+              A secure session layer that lets apps and AI agents connect to Fiber wallets with limited,
+              user-edited, time-boxed authority—without exposing private keys or permanent credentials.
             </p>
             <div className="of-hero-actions">
               <LandingActionButton tone="dark" onClick={() => router.push("/demo")}>
@@ -115,17 +114,15 @@ export default function Home() {
               squareSize={48}
               targetRef={heroArtRef}
             />
-            <div className="clasp-blocks" role="img" aria-label="Clasp">
-              <div className="cb-row">
-                <span className="cb-tile cb-1">C</span>
-                <span className="cb-tile cb-2">L</span>
-              </div>
-              <div className="cb-row">
-                <span className="cb-tile cb-3">A</span>
-                <span className="cb-tile cb-4">S</span>
-                <span className="cb-tile cb-5">P</span>
-              </div>
-            </div>
+            <Image
+              className="clasp-hero-image"
+              src="/clasp-3d.png"
+              alt="CLASP"
+              width={1254}
+              height={1254}
+              sizes="(max-width: 1120px) 88vw, 48vw"
+              priority
+            />
           </div>
         </aside>
       </section>
@@ -275,7 +272,7 @@ export default function Home() {
           </div>
         </div>
         <div className="of-footer-links">
-          <span>Clasp</span>
+          <span>CLASP</span>
           <a href="#flow">How it works</a>
           <a href="#security">Security lab</a>
           <a href="#revoke">Revocation</a>

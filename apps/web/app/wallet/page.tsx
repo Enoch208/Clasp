@@ -12,7 +12,7 @@ import { Stepper } from "@/components/ui/Stepper";
 import { Check, X, ShieldCheck } from "@/components/icons";
 import { weatherAgentPairing, PAIRING_CODE, DEFAULT_DURATION_MINS } from "@/lib/fixtures";
 import { formatCkb, formatDuration, translatePermission, CANNOT_LIST } from "@/lib/format";
-import { approveSession } from "@/lib/mockStore";
+import { connect, useClasp } from "@/lib/claspClient";
 
 const SINGLE_STEP = "25000000";
 const SINGLE_MIN = "25000000";
@@ -24,6 +24,7 @@ export default function WalletApprovalPage() {
   const request = weatherAgentPairing;
   const granted = request.requestedPermissions.filter(isGrantable) as GrantablePermission[];
 
+  const { connecting, serverOnline } = useClasp();
   const [maxSingle, setMaxSingle] = useState(request.requestedLimits.maxSinglePayment);
   const [maxSession, setMaxSession] = useState(request.requestedLimits.maxSessionSpend);
   const [durationMins, setDurationMins] = useState(DEFAULT_DURATION_MINS);
@@ -33,9 +34,13 @@ export default function WalletApprovalPage() {
     maxSingle !== request.requestedLimits.maxSinglePayment ||
     durationMins !== DEFAULT_DURATION_MINS;
 
-  const approve = () => {
-    approveSession({ permissions: granted, maxSinglePayment: maxSingle, maxSessionSpend: maxSession, durationMins });
-    router.push("/demo");
+  const approve = async () => {
+    try {
+      await connect({ permissions: granted, maxSinglePayment: maxSingle, maxSessionSpend: maxSession, durationMins });
+      router.push("/demo");
+    } catch {
+      /* server-offline banner already communicates the failure */
+    }
   };
 
   return (
@@ -129,8 +134,8 @@ export default function WalletApprovalPage() {
           </p>
 
           <div className="limit-actions">
-            <Button variant="accent" block onClick={approve}>
-              Approve — {formatCkb(maxSession)} / {formatDuration(durationMins)}
+            <Button variant="accent" block onClick={approve} disabled={connecting || serverOnline === false}>
+              {connecting ? "Signing session…" : `Approve — ${formatCkb(maxSession)} / ${formatDuration(durationMins)}`}
             </Button>
             <Button variant="ghost" block onClick={() => router.push("/")}>
               Reject

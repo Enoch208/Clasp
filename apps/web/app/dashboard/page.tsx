@@ -8,21 +8,29 @@ import { Tag } from "@/components/ui/Tag";
 import { Meter } from "@/components/ui/Meter";
 import { EventList } from "@/components/EventList";
 import { Power } from "@/components/icons";
-import { useMockStore, revokeSession, type SessionRow } from "@/lib/mockStore";
+import { useClasp, revoke } from "@/lib/claspClient";
 import { useNow } from "@/lib/useNow";
-import { formatCkb, shortId, relativeTime, remaining } from "@/lib/format";
+import { formatCkb, formatDuration, shortId } from "@/lib/format";
 
 type Display = "ACTIVE" | "REVOKED" | "EXPIRED";
 
-function displayState(session: SessionRow, now: number): Display {
-  if (session.state === "REVOKED") return "REVOKED";
-  if (now && now > session.createdAt + session.durationMins * 60_000) return "EXPIRED";
-  return "ACTIVE";
+function expiresIn(expiresAtIso: string, now: number): string {
+  const mins = Math.max(0, Math.round((Date.parse(expiresAtIso) - now) / 60_000));
+  return mins <= 0 ? "expired" : formatDuration(mins);
 }
 
 export default function DashboardPage() {
-  const store = useMockStore();
+  const store = useClasp();
   const now = useNow();
+  const session = store.session;
+
+  const state: Display = session
+    ? session.state === "REVOKED"
+      ? "REVOKED"
+      : now && now > Date.parse(session.expiresAt)
+        ? "EXPIRED"
+        : "ACTIVE"
+    : "ACTIVE";
 
   return (
     <AppShell>
@@ -32,7 +40,7 @@ export default function DashboardPage() {
         sub="Every app that holds authority, exactly what it has spent, and one tap to end it."
       />
 
-      {store.sessions.length === 0 ? (
+      {!session ? (
         <Card>
           <div className="empty-state">
             <p>No active sessions yet.</p>
@@ -44,54 +52,44 @@ export default function DashboardPage() {
       ) : (
         <div className="grid-2">
           <div className="stack-cards">
-            {store.sessions.map((session) => {
-              const state = displayState(session, now);
-              return (
-                <Card
-                  key={session.id}
-                  title={session.app.name}
-                  right={<Tag tone={state === "ACTIVE" ? "ok" : state === "REVOKED" ? "bad" : "muted"}>{state}</Tag>}
-                >
-                  <p className="sess-origin mono">
-                    {session.app.origin} · {shortId(session.id)}
-                  </p>
-                  <dl className="kv-list">
-                    <div className="kv">
-                      <dt>Permissions</dt>
-                      <dd>{session.permissions.length}</dd>
-                    </div>
-                    <div className="kv">
-                      <dt>Per-payment cap</dt>
-                      <dd>{formatCkb(session.maxSinglePayment)}</dd>
-                    </div>
-                    <div className="kv">
-                      <dt>Payments made</dt>
-                      <dd>{session.paymentCount}</dd>
-                    </div>
-                    <div className="kv">
-                      <dt>Expires</dt>
-                      <dd>{now ? remaining(session.durationMins, session.createdAt, now) : "—"}</dd>
-                    </div>
-                    <div className="kv">
-                      <dt>Last activity</dt>
-                      <dd>{now ? relativeTime(session.lastActivity, now) : "—"}</dd>
-                    </div>
-                  </dl>
-                  <div className="spend-row">
-                    <div className="spend-head">
-                      <span>Spent</span>
-                      <span className="mono">
-                        {formatCkb(session.spent)} / {formatCkb(session.maxSessionSpend)}
-                      </span>
-                    </div>
-                    <Meter value={session.spent} max={session.maxSessionSpend} />
-                  </div>
-                  <Button variant="danger" block disabled={state !== "ACTIVE"} onClick={() => revokeSession(session.id)}>
-                    <Power size={16} strokeWidth={2.5} /> Revoke session
-                  </Button>
-                </Card>
-              );
-            })}
+            <Card
+              title="Weather Agent"
+              right={<Tag tone={state === "ACTIVE" ? "ok" : state === "REVOKED" ? "bad" : "muted"}>{state}</Tag>}
+            >
+              <p className="sess-origin mono">
+                {session.origin} · {shortId(session.sessionId)}
+              </p>
+              <dl className="kv-list">
+                <div className="kv">
+                  <dt>Permissions</dt>
+                  <dd>{session.permissions.length}</dd>
+                </div>
+                <div className="kv">
+                  <dt>Per-payment cap</dt>
+                  <dd>{formatCkb(session.maxSinglePayment)}</dd>
+                </div>
+                <div className="kv">
+                  <dt>Payments made</dt>
+                  <dd>{store.paymentCount}</dd>
+                </div>
+                <div className="kv">
+                  <dt>Expires</dt>
+                  <dd>{now ? expiresIn(session.expiresAt, now) : "—"}</dd>
+                </div>
+              </dl>
+              <div className="spend-row">
+                <div className="spend-head">
+                  <span>Spent</span>
+                  <span className="mono">
+                    {formatCkb(session.spent)} / {formatCkb(session.maxSessionSpend)}
+                  </span>
+                </div>
+                <Meter value={session.spent} max={session.maxSessionSpend} />
+              </div>
+              <Button variant="danger" block disabled={state !== "ACTIVE"} onClick={() => void revoke()}>
+                <Power size={16} strokeWidth={2.5} /> Revoke session
+              </Button>
+            </Card>
           </div>
 
           <Card title="Activity">

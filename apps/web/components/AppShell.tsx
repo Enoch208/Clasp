@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode } from "react";
-import { useMockStore } from "@/lib/mockStore";
+import { type ReactNode, useEffect } from "react";
+import { useClasp, checkHealth } from "@/lib/claspClient";
 
 const LINKS = [
   ["Demo", "/demo"],
@@ -14,14 +14,26 @@ const LINKS = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { mode } = useMockStore();
+  const { mode, serverOnline } = useClasp();
+
+  useEffect(() => {
+    void checkHealth();
+  }, []);
+
+  const offline = serverOnline === false;
   const isReal = mode === "REAL";
+  const bannerClass = offline ? "offline" : isReal ? "real" : "demo";
+  const bannerText = offline
+    ? "Backend offline — run: pnpm --filter @clasp/server start"
+    : isReal
+      ? "Real Fiber testnet"
+      : "Demo mode — no network payment";
 
   return (
     <div className="overflow-theme app-shell">
       <div className="app-header-fixed">
-        <div className={`mode-banner ${isReal ? "real" : "demo"}`}>
-          <i /> {isReal ? "Real Fiber testnet" : "Demo mode — no network payment"}
+        <div className={`mode-banner ${bannerClass}`}>
+          <i /> {bannerText}
         </div>
         <nav className="app-nav">
           <Link className="app-nav-brand" href="/">

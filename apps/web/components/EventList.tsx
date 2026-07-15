@@ -1,5 +1,5 @@
 import { type ComponentType } from "react";
-import type { EventKind, EventRow } from "@/lib/mockStore";
+import type { EventKind, EventRow } from "@/lib/claspClient";
 import { relativeTime } from "@/lib/format";
 import { Check, Coins, ShieldOff, Power } from "@/components/icons";
 

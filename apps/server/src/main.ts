@@ -15,14 +15,14 @@ function loadWalletKeys(): { keys: Keypair; ephemeral: boolean } {
 
 const now = () => Date.now();
 const { keys, ephemeral } = loadWalletKeys();
-const store = new Store();
+const store = new Store(process.env.CLASP_DB ?? ":memory:");
 
 const fnnUrl = process.env.CLASP_FNN_URL;
 const real = Boolean(fnnUrl);
 const gateway: Gateway = real ? new FnnGateway({ url: fnnUrl! }) : new FakeGateway();
 
 const walletCore = createWalletCore({ store, gateway, walletKeys: keys, now });
-const app = createApp(walletCore);
+const app = createApp(walletCore, { mode: real ? "REAL" : "DEMO" });
 
 const port = Number(process.env.PORT ?? 8787);
 

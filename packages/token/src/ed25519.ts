@@ -1,10 +1,16 @@
-import { createHash } from "node:crypto";
+import { sha512 } from "@noble/hashes/sha512";
 import * as ed from "@noble/ed25519";
 
+// Pure-JS sha512 so the token layer runs identically in Node and the browser.
 ed.etc.sha512Sync = (...messages: Uint8Array[]): Uint8Array => {
-  const hash = createHash("sha512");
-  for (const message of messages) hash.update(message);
-  return new Uint8Array(hash.digest());
+  const total = messages.reduce((sum, message) => sum + message.length, 0);
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const message of messages) {
+    merged.set(message, offset);
+    offset += message.length;
+  }
+  return sha512(merged);
 };
 
 const { bytesToHex, hexToBytes } = ed.etc;

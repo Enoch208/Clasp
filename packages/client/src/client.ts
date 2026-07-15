@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import {
   ClaspErrorException,
   isClaspError,
@@ -97,7 +96,7 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
       const unsigned = {
         version: "1" as const,
         sessionId,
-        requestId: `req_${randomUUID()}`,
+        requestId: `req_${globalThis.crypto.randomUUID()}`,
         operation,
         parameters,
         nonce,

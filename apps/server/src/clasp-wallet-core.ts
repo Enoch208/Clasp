@@ -73,6 +73,11 @@ export function createWalletCore({ store, gateway, walletKeys, now }: Deps): Wal
       return { sessionId, session: toView(stored), token, walletPubKey: walletKeys.publicKey };
     },
 
+    async createInvoice(input: { amount: string; asset: string }) {
+      const created = await gateway.newInvoice({ amount: input.amount, asset: input.asset });
+      return { invoice: created.invoice, amount: created.amount, asset: created.asset };
+    },
+
     getSession(sessionId: string): SessionView | null {
       const session = store.getSession(sessionId);
       return session ? toView(session) : null;
