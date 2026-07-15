@@ -18,26 +18,37 @@ this is the whole point of Clasp. Do **not** put cloudflared in front of `:8227`
 
 ## 1. Run a Fiber testnet node
 
-Follow the official quick-start (versioned, authoritative):
-- Node: <https://github.com/nervosnetwork/fiber> (`docker pull nervos/fiber`, or `cargo build --release`)
-- Use `config/testnet/config.yml`; create/import a CKB key into `ckb/key`; start with
-  `FIBER_SECRET_KEY_PASSWORD=… RUST_LOG=info ./fnn -c config.yml -d .`
-- Confirm the RPC listen address in `config.yml` (`rpc.listening_addr`, commonly `127.0.0.1:8227`).
+This recipe is **verified** — a `nervos/fiber:0.9.0-rc7` node booted and served JSON-RPC,
+and the `FnnGateway` was confirmed against it.
 
-Verify it answers JSON-RPC locally on the VPS:
 ```bash
-curl -s http://127.0.0.1:8227 -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"info_node_info","params":[]}' | head
+mkdir -p fiber-node/ckb && cd fiber-node
+curl -s -o config.yml https://raw.githubusercontent.com/nervosnetwork/fiber/v0.9.0-rc7/config/testnet/config.yml
+openssl rand -hex 32 > ckb/key                 # node identity/CKB key; fund THIS node's address later
+# RPC must stay private — the node REFUSES to bind 0.0.0.0 without a Biscuit key (its own guard).
+# Keep rpc.listening_addr = 127.0.0.1:8227 in config.yml.
+docker run -d --name fiber-node -v "$PWD":/fiber \
+  -e FIBER_SECRET_KEY_PASSWORD=change-me -e RUST_LOG=info \
+  nervos/fiber:0.9.0-rc7 -c /fiber/config.yml -d /fiber
+```
+The node uses the public CKB testnet RPC (`testnet.ckbapp.dev`) — no local CKB chain needed.
+
+Verify it answers (via a sidecar sharing the node's private netns — never expose :8227):
+```bash
+docker run --rm --network container:fiber-node curlimages/curl -s http://127.0.0.1:8227 \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"new_invoice","params":[{"amount":"0x5f5e100","currency":"Fibt"}]}'
+# → {"result":{"invoice_address":"fibt1...", ...}}
 ```
 
-## 2. Fund it and open a channel
+## 2. Fund it and open a channel (the gate for a real hash)
 
-A real payment needs testnet CKB **and a funded channel with a routable peer** — an
-unfunded node cannot settle anything.
+A real payment needs testnet CKB **and outbound liquidity in a channel**. Verified: with no
+channel, `send_payment` returns exactly `Insufficient balance: max outbound liquidity 0`.
 - Fund the node's CKB address at the Pudge faucet: <https://faucet.nervos.org/>
-- Connect to a peer and open a channel (`connect_peer`, `open_channel` — see the Fiber docs
-  for current testnet bootstrap peers and the exact params; these change between versions).
-- `list_channels` should show a channel in `CHANNEL_READY` with local balance.
+- Connect to a peer and open a channel (`connect_peer`, `open_channel` — testnet bootstrap
+  peers are in `config.yml` under `bootnode_addrs`).
+- Wait for the channel to reach `CHANNEL_READY` with local (outbound) balance.
 
 ## 3. Point Clasp at the node
 
@@ -48,9 +59,10 @@ pnpm --filter @clasp/server start
 # log should read: "mode: REAL TESTNET — settling through FNN at http://127.0.0.1:8227"
 ```
 
-The gateway maps: `newInvoice → invoice_new_invoice`, `getInvoice → invoice_parse_invoice`,
-`sendPayment → payment_send_payment` (+ `payment_get_payment` polling to `Success`/`Failed`),
-`getPayment → payment_get_payment`. Amounts are hex shannons; currency `Fibt`.
+The gateway maps (method names **verified live** against 0.9.0-rc7 — unprefixed):
+`newInvoice → new_invoice`, `getInvoice → parse_invoice`, `sendPayment → send_payment`
+(+ `get_payment` polling to `Success`/`Failed`), `getPayment → get_payment`. Amounts are hex
+shannons; currency `Fibt`.
 
 ## 4. Expose the Clasp server
 
