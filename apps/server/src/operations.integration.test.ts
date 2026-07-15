@@ -1,0 +1,113 @@
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { AddressInfo } from "node:net";
+import type { Server } from "node:http";
+import { ClaspErrorException } from "@clasp/protocol";
+import { createClaspClient } from "@clasp/client";
+import { createApp } from "./app";
+import { createStubWalletCore } from "./stub/wallet-core";
+import { createFakeGateway, fakeInvoice } from "./stub/gateway";
+import { generateKeypair } from "./stub/crypto";
+
+const ORIGIN = "https://weather.example";
+const ASSET = "CKB";
+const START = Date.parse("2026-07-15T20:00:00Z");
+
+describe("client SDK drives POST /operations end-to-end", () => {
+  let server: Server;
+  let base: string;
+  let now: number;
+  let walletKeys: ReturnType<typeof generateKeypair>;
+
+  beforeEach(async () => {
+    now = START;
+    walletKeys = generateKeypair();
+    const gateway = createFakeGateway({ now: () => now });
+    const walletCore = createStubWalletCore({ gateway, walletKeys, now: () => now });
+    server = createApp(walletCore).listen(0);
+    await new Promise<void>((resolve) => server.once("listening", resolve));
+    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterEach(async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  function newClient() {
+    return createClaspClient({
+      serverUrl: base,
+      origin: ORIGIN,
+      app: { name: "Weather Agent" },
+      permissions: ["payments:request", "invoices:read"],
+      asset: ASSET,
+      maxSinglePayment: "100000000",
+      maxSessionSpend: "250000000",
+      now: () => now,
+    });
+  }
+
+  it("connects and settles a signed payment", async () => {
+    const client = newClient();
+    const session = await client.connect();
+
+    expect(session.sessionId).toBeTruthy();
+    expect(session.walletPubKey).toBe(walletKeys.publicKey);
+
+    const result = await session.requestPayment({ invoice: fakeInvoice(ASSET, "40000000"), amount: "40000000" });
+
+    expect(result.status).toBe("succeeded");
+    expect(result.paymentHash).toMatch(/^[0-9a-f]+$/);
+    expect(result.sessionRemaining).toBe("210000000");
+  });
+
+  it("increments the nonce across requests so neither is a replay", async () => {
+    const client = newClient();
+    const session = await client.connect();
+
+    const first = await session.requestPayment({ invoice: fakeInvoice(ASSET, "40000000"), amount: "40000000" });
+    const second = await session.requestPayment({ invoice: fakeInvoice(ASSET, "60000000"), amount: "60000000" });
+
+    expect(first.status).toBe("succeeded");
+    expect(second.status).toBe("succeeded");
+    expect(second.sessionRemaining).toBe("150000000");
+  });
+
+  it("throws a structured ClaspError over the per-payment cap", async () => {
+    const client = newClient();
+    const session = await client.connect();
+
+    await expect(
+      session.requestPayment({ invoice: fakeInvoice(ASSET, "200000000"), amount: "200000000" }),
+    ).rejects.toMatchObject({ error: { code: "single_payment_limit_exceeded" } });
+  });
+
+  it("emits 'revoked' and blocks the next payment after out-of-band revocation", async () => {
+    const client = newClient();
+    const session = await client.connect();
+
+    const revokedEvents: string[] = [];
+    client.on("revoked", (sessionId) => revokedEvents.push(sessionId));
+
+    await fetch(`${base}/sessions/${session.sessionId}/revoke`, { method: "POST" });
+
+    let thrown: unknown;
+    try {
+      await session.requestPayment({ invoice: fakeInvoice(ASSET, "40000000"), amount: "40000000" });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ClaspErrorException);
+    expect((thrown as ClaspErrorException).error.code).toBe("session_revoked");
+    expect(revokedEvents).toEqual([session.sessionId]);
+  });
+
+  it("reads live session state including accumulated spend", async () => {
+    const client = newClient();
+    const session = await client.connect();
+    await session.requestPayment({ invoice: fakeInvoice(ASSET, "40000000"), amount: "40000000" });
+
+    const state = await session.getState();
+    expect(state.spent).toBe("40000000");
+    expect(state.state).toBe("ACTIVE");
+  });
+});
