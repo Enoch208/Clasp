@@ -53,35 +53,63 @@
   }
 }
 
-.clasp-wordmark {
+.of-asset-stage {
+  background-color: var(--of-paper);
+  background-image:
+    linear-gradient(var(--of-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--of-grid) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+.clasp-blocks {
   position: absolute;
+  inset: 0;
   z-index: 1;
-  top: 8%;
-  right: -6%;
-  margin: 0;
-  transform: rotate(-7deg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 1.6vw, 22px);
+  transform: rotate(-4deg);
+  pointer-events: none;
+}
+.cb-row {
+  display: flex;
+  gap: clamp(10px, 1.6vw, 22px);
+}
+.cb-tile {
+  display: grid;
+  place-items: center;
+  width: clamp(76px, 10.5vw, 150px);
+  height: clamp(76px, 10.5vw, 150px);
+  border: 3px solid var(--of-ink);
+  border-radius: 26%;
   font-family: var(--font-display, ui-sans-serif), sans-serif;
   font-weight: 900;
-  font-size: clamp(4rem, 12vw, 9rem);
-  line-height: 0.8;
-  letter-spacing: -0.06em;
-  color: var(--of-paper);
-  text-shadow: 9px 11px 0 var(--of-ink);
+  font-size: clamp(2.8rem, 6vw, 5.4rem);
+  line-height: 1;
+  color: var(--of-ink);
+  box-shadow: 8px 9px 0 var(--of-ink);
 }
-.clasp-wordmark span {
-  display: block;
-  color: var(--of-yellow);
+.cb-1 {
+  background: linear-gradient(150deg, #ead0ff, var(--of-lavender));
+  transform: rotate(-5deg);
 }
-.clasp-wordmark small {
-  display: block;
-  margin-top: 18px;
-  font-family: ui-monospace, SFMono-Regular, monospace;
-  font-size: 0.9rem;
-  font-weight: 800;
-  letter-spacing: 0;
-  color: var(--of-blue);
-  text-shadow: none;
-  text-transform: uppercase;
+.cb-2 {
+  background: linear-gradient(150deg, #b7d8ff, var(--of-blue));
+  transform: rotate(3deg);
+}
+.cb-3 {
+  background: linear-gradient(150deg, #9fedcf, var(--of-mint));
+  transform: rotate(-3deg);
+}
+.cb-4 {
+  background: linear-gradient(150deg, #ffe79a, var(--of-yellow));
+  transform: rotate(4deg);
+}
+.cb-5 {
+  background: linear-gradient(150deg, #ffc0dc, var(--of-pink));
+  transform: rotate(-4deg);
 }
 
 html,

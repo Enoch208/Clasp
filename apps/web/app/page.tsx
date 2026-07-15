@@ -115,10 +115,17 @@ export default function Home() {
               squareSize={48}
               targetRef={heroArtRef}
             />
-            <p className="clasp-wordmark">
-              Clasp
-              <small>never hand over the keys</small>
-            </p>
+            <div className="clasp-blocks" role="img" aria-label="Clasp">
+              <div className="cb-row">
+                <span className="cb-tile cb-1">C</span>
+                <span className="cb-tile cb-2">L</span>
+              </div>
+              <div className="cb-row">
+                <span className="cb-tile cb-3">A</span>
+                <span className="cb-tile cb-4">S</span>
+                <span className="cb-tile cb-5">P</span>
+              </div>
+            </div>
           </div>
         </aside>
       </section>
