@@ -1,0 +1,22 @@
+{
+  "name": "@clasp/wallet-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clasp/protocol": "workspace:*",
+    "@clasp/token": "workspace:*",
+    "@clasp/gateway": "workspace:*",
+    "better-sqlite3": "^11.8.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "typescript": "^5.7.0"
+  }
+}
