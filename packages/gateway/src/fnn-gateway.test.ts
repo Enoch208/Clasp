@@ -29,7 +29,7 @@ describe("FnnGateway", () => {
 
     const invoice = await gateway.newInvoice({ amount: "100000000", asset: "CKB", memo: "report" });
 
-    expect(requests[0]!.method).toBe("invoice_new_invoice");
+    expect(requests[0]!.method).toBe("new_invoice");
     expect(firstParam(requests[0]!.params).amount).toBe("0x5f5e100"); // 100,000,000 shannons = 1 CKB
     expect(firstParam(requests[0]!.params).currency).toBe("Fibt");
     expect(firstParam(requests[0]!.params).description).toBe("report");
@@ -42,23 +42,23 @@ describe("FnnGateway", () => {
 
     const invoice = await gateway.getInvoice("fibt1qxyz");
 
-    expect(requests[0]!.method).toBe("invoice_parse_invoice");
+    expect(requests[0]!.method).toBe("parse_invoice");
     expect(firstParam(requests[0]!.params).invoice).toBe("fibt1qxyz");
     expect(invoice).toEqual({ invoice: "fibt1qxyz", amount: "100000000", asset: "CKB" });
   });
 
   it("sends a payment and polls get_payment until it settles", async () => {
     const { fn, requests } = mockFetch((method, _params, call) => {
-      if (method === "payment_send_payment") return { payment_hash: "0xabc", status: "Inflight" };
+      if (method === "send_payment") return { payment_hash: "0xabc", status: "Inflight" };
       return { payment_hash: "0xabc", status: call >= 3 ? "Success" : "Inflight" };
     });
     const gateway = new FnnGateway({ url: "http://node/rpc", fetch: fn, pollIntervalMs: 0 });
 
     const payment = await gateway.sendPayment({ invoice: "fibt1qxyz", amount: "40000000", asset: "CKB" });
 
-    expect(requests[0]!.method).toBe("payment_send_payment");
+    expect(requests[0]!.method).toBe("send_payment");
     expect(firstParam(requests[0]!.params).invoice).toBe("fibt1qxyz");
-    expect(requests.filter((r) => r.method === "payment_get_payment").length).toBeGreaterThan(0);
+    expect(requests.filter((r) => r.method === "get_payment").length).toBeGreaterThan(0);
     expect(payment.status).toBe("settled");
     expect(payment.paymentHash).toBe("0xabc");
   });
@@ -75,7 +75,7 @@ describe("FnnGateway", () => {
 
   it("returns a failed status when the network reports Failed", async () => {
     const { fn } = mockFetch((method) =>
-      method === "payment_send_payment" ? { payment_hash: "0x1", status: "Failed" } : {},
+      method === "send_payment" ? { payment_hash: "0x1", status: "Failed" } : {},
     );
     const gateway = new FnnGateway({ url: "http://node/rpc", fetch: fn });
 

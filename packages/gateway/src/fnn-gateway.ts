@@ -43,14 +43,14 @@ function normalizeStatus(status: string): PaymentStatus {
 }
 
 /**
- * Real adapter over the Fiber Network Node JSON-RPC (v0.6.x): invoice_new_invoice,
- * invoice_parse_invoice, payment_send_payment, payment_get_payment. Amounts are
- * hex-encoded shannons; currency Fibt is the CKB testnet.
+ * Real adapter over the Fiber Network Node JSON-RPC: new_invoice, parse_invoice,
+ * send_payment, get_payment. Amounts are hex-encoded shannons; currency Fibt is the
+ * CKB testnet.
  *
- * Wire details confirmed from the Fiber RPC docs: method names, JSON-RPC 2.0 envelope,
- * hex amounts (e.g. "0x5f5e100" = 1 CKB), and the Created→Inflight→Success|Failed status
- * enum. Param shape is positional (a single element array) per jsonrpsee convention —
- * confirm against the live node on first contact.
+ * Verified live against a nervos/fiber 0.9.0-rc7 node: unprefixed method names, positional
+ * single-element array params (params: [{…}]), hex amounts ("0x5f5e100" = 1 CKB), the
+ * invoice_address / invoice.amount response fields, and the Created→Inflight→Success|Failed
+ * status enum. (An earlier draft used module-prefixed names — the live node rejected them.)
  */
 export class FnnGateway implements Gateway {
   private readonly url: string;
@@ -87,7 +87,7 @@ export class FnnGateway implements Gateway {
 
   async newInvoice(params: NewInvoiceParams): Promise<Invoice> {
     const currency = this.currencyFor(params.asset);
-    const result = await this.call<{ invoice_address: string }>("invoice_new_invoice", [
+    const result = await this.call<{ invoice_address: string }>("new_invoice", [
       {
         amount: toHexAmount(params.amount),
         currency,
@@ -100,7 +100,7 @@ export class FnnGateway implements Gateway {
   }
 
   async getInvoice(invoice: string): Promise<Invoice> {
-    const result = await this.call<{ invoice: { amount?: string | number | null } }>("invoice_parse_invoice", [
+    const result = await this.call<{ invoice: { amount?: string | number | null } }>("parse_invoice", [
       { invoice },
     ]);
     return { invoice, amount: fromAmount(result.invoice.amount), asset: "CKB" };
@@ -108,7 +108,7 @@ export class FnnGateway implements Gateway {
 
   async sendPayment(params: SendPaymentParams): Promise<Payment> {
     this.currencyFor(params.asset);
-    const sent = await this.call<{ payment_hash: string; status: string }>("payment_send_payment", [
+    const sent = await this.call<{ payment_hash: string; status: string }>("send_payment", [
       { invoice: params.invoice },
     ]);
     const status = await this.waitForSettlement(sent.payment_hash, sent.status);
@@ -122,7 +122,7 @@ export class FnnGateway implements Gateway {
   }
 
   async getPayment(paymentHash: string): Promise<Payment> {
-    const result = await this.call<{ payment_hash: string; status: string }>("payment_get_payment", [
+    const result = await this.call<{ payment_hash: string; status: string }>("get_payment", [
       { payment_hash: paymentHash },
     ]);
     return {
@@ -143,7 +143,7 @@ export class FnnGateway implements Gateway {
       }
       await sleep(this.pollIntervalMs);
       waited += this.pollIntervalMs;
-      const result = await this.call<{ status: string }>("payment_get_payment", [{ payment_hash: paymentHash }]);
+      const result = await this.call<{ status: string }>("get_payment", [{ payment_hash: paymentHash }]);
       status = normalizeStatus(result.status);
     }
     return status;
