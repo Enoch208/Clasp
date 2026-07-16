@@ -28,6 +28,8 @@ Built for **Gone in 60ms: the Fiber Network Infrastructure Hackathon** — Categ
 
 [![Watch the demo](https://img.youtube.com/vi/HUzFXqXWo-A/maxresdefault.jpg)](https://useclasp.xyz/video)
 
+Prefer to stay on GitHub? **[Watch it here ↗](https://github.com/user-attachments/assets/760ad4a6-8f3a-4a07-a102-afa69c813833)**
+
 Or skip the video and go break it yourself at **[useclasp.xyz](https://useclasp.xyz)** — connect the demo app, cut its limits, and see how far you get in the Security Lab.
 
 ---
