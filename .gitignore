@@ -24,3 +24,6 @@ pnpm-debug.log*
 .DS_Store
 *.pem
 .vercel
+
+# demo video pipeline (media + keys live outside the repo)
+/video/
