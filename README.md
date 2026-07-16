@@ -14,7 +14,7 @@
 
 Today, letting an app touch a Fiber wallet means handing it your keys or a permanent RPC credential — total authority, forever. Clasp is the missing **session layer**: apps and AI agents get **scoped, user-edited, time-boxed, revocable** authority instead. Every request runs a 10-step policy engine, every payment settles on the **real Fiber testnet** under limits *you* set, every attack comes back a structured rejection, and one tap kills it all. Live at **[useclasp.xyz](https://useclasp.xyz)** — running in `REAL FIBER TESTNET` mode right now.
 
-**[ Watch the demo ↗ ](https://useclasp.xyz/video)** · **[ Live app ↗ ](https://useclasp.xyz)** · **[ The policy engine ↗ ](#the-10-step-policy-engine-every-request-every-time)** · **[ Run it locally ↗ ](#run-it-locally)**
+**[ Watch the demo ↗ ](https://youtu.be/HUzFXqXWo-A)** · **[ Live app ↗ ](https://useclasp.xyz)** · **[ The policy engine ↗ ](#the-10-step-policy-engine-every-request-every-time)** · **[ Run it locally ↗ ](#run-it-locally)**
 
 Built for **Gone in 60ms: the Fiber Network Infrastructure Hackathon** — Category 1: Wallet & Payment UX Infrastructure.
 
@@ -26,9 +26,9 @@ Built for **Gone in 60ms: the Fiber Network Infrastructure Hackathon** — Categ
 
 *A three-and-a-half minute run through the whole idea, on the live testnet. An app asks to connect and its limits get dialed down before it's let anywhere near the wallet. Then it turns hostile — and gets shut down four different ways. An AI sub-agent is handed a weaker key and can't widen it no matter how it tries. And at the end, real value actually moves: a payment settles on Fiber, with a receipt you can verify yourself.*
 
-[![Watch the demo](https://img.youtube.com/vi/HUzFXqXWo-A/maxresdefault.jpg)](https://useclasp.xyz/video)
+https://github.com/user-attachments/assets/760ad4a6-8f3a-4a07-a102-afa69c813833
 
-Prefer to stay on GitHub? **[Watch it here ↗](https://github.com/user-attachments/assets/760ad4a6-8f3a-4a07-a102-afa69c813833)**
+Full walkthrough on YouTube: https://youtu.be/HUzFXqXWo-A
 
 Or skip the video and go break it yourself at **[useclasp.xyz](https://useclasp.xyz)** — connect the demo app, cut its limits, and see how far you get in the Security Lab.
 
