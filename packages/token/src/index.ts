@@ -8,6 +8,8 @@ export {
   verifyRequest,
   signDelegation,
   verifyDelegation,
+  signStatement,
+  verifyStatement,
   signResult,
   verifyResult,
   type Keypair,

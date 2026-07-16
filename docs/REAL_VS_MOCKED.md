@@ -4,7 +4,7 @@ Clasp's honesty layer, stated plainly. The UI banner always reflects which mode 
 
 ## Real (enforced in code, tested, or verified on-chain)
 
-- **The 10-step policy engine** — every operation is checked in order; errors are structured data (`@clasp/wallet-core`). 107 automated tests, including the core-8.
+- **The 10-step policy engine** — every operation is checked in order; errors are structured data (`@clasp/wallet-core`). 110 automated tests, including the core-8.
 - **Atomic spend accounting** — a single `BEGIN IMMEDIATE` SQLite transaction with `UNIQUE(session_id, nonce)` and `UNIQUE(request_id)`. A two-concurrent-reservations test proves two spends cannot jointly exceed the cap.
 - **The four attacks** — `permission_denied`, `single_payment_limit_exceeded`, `replay_detected`, `origin_mismatch` are produced by the real engine on real signed requests. Nothing in the security lab is simulated.
 - **Revocation** — moves the session to `REVOKED`; all later requests fail with `session_revoked`. Revoking a parent **cascades** to every delegated child.
@@ -12,6 +12,7 @@ Clasp's honesty layer, stated plainly. The UI banner always reflects which mode 
 - **Ed25519 tokens** — the wallet signs the session facts; the app signs every operation request; tampering invalidates the signature.
 - **Verifiable receipts** — every settled payment returns a wallet-signed `OperationResult`; `session.verifyReceipt()` checks it against the wallet key, so the app holds cryptographic proof of settlement (tampering flips it to invalid). Shown live on the demo payment card.
 - **Capability discovery** — `session.getCapabilities()` reports the granted operations, asset, per-payment cap, live remaining budget, expiry, and whether the session can delegate.
+- **Verifiable session statements** — `session.getStatement()` returns a wallet-signed snapshot (spend, payment count, remaining, state) the user can download from the dashboard as a portable audit artifact; `verifyStatement()` proves it against the wallet key.
 - **React bindings** — `@clasp/react` (`<ClaspProvider>`, `useClaspSession()`, `<ConnectFiberWalletButton>`) drives the whole `/sdk` surface as a second app (Acme Checkout) on the same policy engine.
 - **Allow-listed gateway** — only `new_invoice` / `parse_invoice` / `send_payment` / `get_payment` are reachable; a structural test asserts no raw-RPC passthrough.
 - **Real Fiber testnet settlement** — the deployed site (`useclasp.xyz`) runs the real `FnnGateway` against real `nervos/fiber` nodes and settles over a real funded channel. Verified payment: `0x3d2c38daf7b4945aacda7fae58348647bb8ad4cb7c65e5786103d0e1f9ccdcfa` (`get_payment` → `Success`).

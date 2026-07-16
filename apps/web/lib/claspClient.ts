@@ -185,6 +185,29 @@ export async function revoke(): Promise<void> {
   push({ ts: Date.now(), kind: "revoked", label: "Session revoked by the user" });
 }
 
+export async function exportStatement(): Promise<{ ok: boolean; verified: boolean }> {
+  if (!session) return { ok: false, verified: false };
+  try {
+    const statement = await session.getStatement();
+    const verified = session.verifyStatement(statement);
+    const blob = new Blob([JSON.stringify(statement, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `clasp-statement-${statement.sessionId}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    push({
+      ts: Date.now(),
+      kind: verified ? "approved" : "blocked",
+      label: verified ? "Exported wallet-signed statement (verified)" : "Statement failed verification",
+    });
+    return { ok: true, verified };
+  } catch {
+    return { ok: false, verified: false };
+  }
+}
+
 export interface DelegateChildInput {
   maxSinglePayment: string;
   maxSessionSpend: string;

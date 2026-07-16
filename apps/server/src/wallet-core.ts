@@ -5,6 +5,7 @@ import type {
   OperationRequest,
   OperationResult,
   SessionState,
+  SessionStatement,
 } from "@clasp/protocol";
 
 export interface SessionView {
@@ -59,6 +60,7 @@ export interface WalletCore {
   createSession(input: CreateSessionInput): CreateSessionResult;
   createInvoice(input: { amount: string; asset: string }): Promise<InvoiceResult>;
   getSession(sessionId: string): SessionView | null;
+  getStatement(sessionId: string): SessionStatement | null;
   revoke(sessionId: string): SessionView | null;
   delegate(request: DelegationRequest, meta: EvaluateMeta): DelegateResultView | ClaspError;
   evaluate(request: OperationRequest, meta: EvaluateMeta): Promise<OperationResult | ClaspError>;

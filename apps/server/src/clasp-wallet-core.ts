@@ -1,6 +1,6 @@
-import { isClaspError, type ClaspError, type SessionFacts } from "@clasp/protocol";
+import { isClaspError, subAmounts, type ClaspError, type SessionFacts, type SessionStatement } from "@clasp/protocol";
 import { Store, evaluate, delegate, type StoredSession } from "@clasp/wallet-core";
-import { signSession, type Keypair } from "@clasp/token";
+import { signSession, signStatement, type Keypair } from "@clasp/token";
 import type { Gateway } from "@clasp/gateway";
 import type {
   WalletCore,
@@ -82,6 +82,27 @@ export function createWalletCore({ store, gateway, walletKeys, now }: Deps): Wal
     getSession(sessionId: string): SessionView | null {
       const session = store.getSession(sessionId);
       return session ? toView(session) : null;
+    },
+
+    getStatement(sessionId: string): SessionStatement | null {
+      const session = store.getSession(sessionId);
+      if (!session) return null;
+      return signStatement(
+        {
+          version: "1",
+          sessionId: session.id,
+          origin: session.origin,
+          asset: session.asset,
+          maxSessionSpend: session.maxSessionSpend,
+          spent: session.spent,
+          sessionRemaining: subAmounts(session.maxSessionSpend, session.spent),
+          paymentCount: store.countPayments(session.id),
+          state: session.state,
+          expiresAt: session.expiresAt,
+          issuedAt: new Date(now()).toISOString(),
+        },
+        walletKeys.privateKey,
+      );
     },
 
     revoke(sessionId: string): SessionView | null {

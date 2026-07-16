@@ -6,6 +6,7 @@ import {
   type OperationRequest,
   type OperationResult,
   type DelegationRequest,
+  type SessionStatement,
 } from "@clasp/protocol";
 import { canonicalize } from "./canonicalize";
 import { publicKeyFromPrivate, randomPrivateKey, signBytes, verifyBytes } from "./ed25519";
@@ -66,6 +67,23 @@ export function signDelegation(request: Omit<DelegationRequest, "signature">, ap
 
 export function verifyDelegation(request: DelegationRequest, appPublicKey: string): boolean {
   return verifyBytes(delegationMessage(request), request.signature, appPublicKey);
+}
+
+function statementMessage(statement: Omit<SessionStatement, "signature">): string {
+  const { signature: _omit, ...rest } = statement as SessionStatement;
+  return canonicalize(rest);
+}
+
+export function signStatement(
+  statement: Omit<SessionStatement, "signature">,
+  walletPrivateKey: string,
+): SessionStatement {
+  return { ...statement, signature: signBytes(statementMessage(statement), walletPrivateKey) };
+}
+
+export function verifyStatement(statement: SessionStatement, walletPublicKey: string): boolean {
+  const { signature, ...rest } = statement;
+  return verifyBytes(canonicalize(rest), signature, walletPublicKey);
 }
 
 export function signResult(result: Omit<OperationResult, "signature">, walletPrivateKey: string): OperationResult {

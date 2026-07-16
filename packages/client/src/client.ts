@@ -6,8 +6,16 @@ import {
   type GrantablePermission,
   type OperationResult,
   type SessionState,
+  type SessionStatement,
 } from "@clasp/protocol";
-import { generateKeypair, signRequest, signDelegation, verifyResult, type Keypair } from "@clasp/token";
+import {
+  generateKeypair,
+  signRequest,
+  signDelegation,
+  verifyResult,
+  verifyStatement as verifyStatementToken,
+  type Keypair,
+} from "@clasp/token";
 
 export type ClaspEvent = "revoked";
 
@@ -80,6 +88,8 @@ export interface ClaspSession {
   delegate(input: DelegateInput): Promise<ClaspSession>;
   getCapabilities(): Promise<Capabilities>;
   verifyReceipt(receipt: Receipt): boolean;
+  getStatement(): Promise<SessionStatement>;
+  verifyStatement(statement: SessionStatement): boolean;
   revoke(): Promise<SessionSnapshot>;
   getState(): Promise<SessionSnapshot>;
 }
@@ -225,6 +235,17 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
       return verifyResult(receipt, walletPubKey);
     }
 
+    async function getStatement(): Promise<SessionStatement> {
+      const res = await doFetch(`${config.serverUrl}/sessions/${sessionId}/statement`);
+      const body = (await res.json()) as ClaspError | { statement: SessionStatement };
+      if (isClaspError(body)) throw new ClaspErrorException(body);
+      return body.statement;
+    }
+
+    function verifyStatement(statement: SessionStatement): boolean {
+      return verifyStatementToken(statement, walletPubKey);
+    }
+
     return {
       sessionId,
       token,
@@ -235,6 +256,8 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
       delegate,
       getCapabilities,
       verifyReceipt,
+      getStatement,
+      verifyStatement,
       revoke,
       getState,
     };

@@ -101,5 +101,15 @@ export function createApp(walletCore: WalletCore, opts: { mode?: "REAL" | "DEMO"
     res.status(200).json({ session });
   });
 
+  app.get("/sessions/:id/statement", (req, res) => {
+    const sessionId = req.params.id ?? "";
+    const statement = walletCore.getStatement(sessionId);
+    if (!statement) {
+      res.status(404).json(claspError("session_not_found", { sessionId }));
+      return;
+    }
+    res.status(200).json({ statement });
+  });
+
   return app;
 }

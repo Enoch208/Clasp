@@ -8,9 +8,10 @@ Clasp is deliberately scoped for the hackathon's Part 2 (applications on Fiber) 
 - **Verifiable payment receipts** — every settled payment returns a wallet-signed result; `session.verifyReceipt()` proves settlement against the wallet key.
 - **Capability discovery** — `session.getCapabilities()` reports granted operations, caps, live remaining budget, and whether the session can delegate.
 - **React components** — `@clasp/react`: `<ClaspProvider>`, `useClaspSession()`, `<ConnectFiberWalletButton>`; demonstrated by the `/sdk` surface.
+- **Verifiable session statements** — `session.getStatement()` returns a wallet-signed audit snapshot; exportable from the dashboard, verifiable with `verifyStatement()`.
 
 ## Protocol & DX
-- **Session activity export.**
+- **Session activity event stream** — subscribe to server-side `session_events` in real time (the export exists; live streaming does not).
 
 ## Hardening
 - **Standalone encrypted relay** — promote the relay module boundary to a separate host.

@@ -154,4 +154,17 @@ describe("client SDK drives POST /operations end-to-end", () => {
     const tampered = { ...receipt, amount: "1" };
     expect(session.verifyReceipt(tampered)).toBe(false);
   });
+
+  it("exports a verifiable session statement of everything the session spent", async () => {
+    const client = newClient();
+    const session = await client.connect();
+    await session.requestPayment({ invoice: fakeInvoice(ASSET, "40000000"), amount: "40000000" });
+    await session.requestPayment({ invoice: fakeInvoice(ASSET, "60000000"), amount: "60000000" });
+
+    const statement = await session.getStatement();
+    expect(statement.spent).toBe("100000000");
+    expect(statement.paymentCount).toBe(2);
+    expect(session.verifyStatement(statement)).toBe(true);
+    expect(session.verifyStatement({ ...statement, spent: "0" })).toBe(false);
+  });
 });

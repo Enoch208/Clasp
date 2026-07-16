@@ -4,7 +4,7 @@
 
 Clasp is open-source infrastructure — a pairing protocol, a wallet **policy engine**, an **allow-listed Fiber gateway**, and a **TypeScript SDK** — that lets any application or AI agent connect to a [Fiber Network](https://www.fiber.world/) wallet with **limited, user-edited, time-boxed, revocable** authority, instead of a permanent RPC URL and credential.
 
-[![MIT](https://img.shields.io/badge/license-MIT-black)](LICENSE) ![tests](https://img.shields.io/badge/tests-107%20passing-2FA46A) ![mode](https://img.shields.io/badge/network-CKB%20testnet-FFCC33) [![live](https://img.shields.io/badge/demo-useclasp.xyz-5BA4FF)](https://useclasp.xyz)
+[![MIT](https://img.shields.io/badge/license-MIT-black)](LICENSE) ![tests](https://img.shields.io/badge/tests-110%20passing-2FA46A) ![mode](https://img.shields.io/badge/network-CKB%20testnet-FFCC33) [![live](https://img.shields.io/badge/demo-useclasp.xyz-5BA4FF)](https://useclasp.xyz)
 
 > **Live demo → [useclasp.xyz](https://useclasp.xyz)** — running in **REAL FIBER TESTNET** mode. Payments settle over a real Fiber payment channel.
 
@@ -68,7 +68,7 @@ An agent holding `payments:auto` can mint an **attenuated** child credential for
 | `@clasp/token` | Ed25519 sign/verify for sessions, operations, results (isomorphic Node/browser) |
 | `@clasp/gateway` | `Gateway` interface (exactly 4 methods) · `FakeGateway` · real `FnnGateway` |
 | `@clasp/wallet-core` | SQLite store + the 10-step `evaluate()` engine with atomic reserve-then-settle |
-| `@clasp/client` | The SDK: `createClaspClient()` → `connect()`, `requestPayment()`, `session.delegate()`, `getCapabilities()`, `verifyReceipt()` |
+| `@clasp/client` | The SDK: `createClaspClient()` → `connect()`, `requestPayment()`, `session.delegate()`, `getCapabilities()`, `verifyReceipt()`, `getStatement()` |
 | `@clasp/react` | React bindings: `<ClaspProvider>`, `useClaspSession()`, `<ConnectFiberWalletButton>` |
 | `apps/server` | Express service wiring relay ⊕ wallet-core ⊕ gateway |
 | `apps/web` | Next.js: landing + wallet approval, dashboard, delegation, security lab, demo dApp, SDK example |
@@ -112,7 +112,7 @@ Open `localhost:3000` → Demo → Connect → Wallet (reduce) → Approve → p
 ## Tests
 
 ```bash
-pnpm test                        # 107 tests: protocol, token, gateway, wallet-core, client, server
+pnpm test                        # 110 tests: protocol, token, gateway, wallet-core, client, server
 pnpm --filter @clasp/web test    # web logic
 pnpm -r --if-present run typecheck
 ```

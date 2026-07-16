@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { AppShell, SurfaceHead } from "@/components/AppShell";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
 import { Meter } from "@/components/ui/Meter";
 import { EventList } from "@/components/EventList";
-import { Power } from "@/components/icons";
-import { useClasp, revoke } from "@/lib/claspClient";
+import { Download, Power } from "@/components/icons";
+import { useClasp, revoke, exportStatement } from "@/lib/claspClient";
 import { useNow } from "@/lib/useNow";
 import { formatCkb, formatDuration, shortId } from "@/lib/format";
 
@@ -23,6 +24,15 @@ export default function DashboardPage() {
   const store = useClasp();
   const now = useNow();
   const session = store.session;
+  const [exporting, setExporting] = useState(false);
+  const [exported, setExported] = useState(false);
+
+  const onExport = async () => {
+    setExporting(true);
+    const result = await exportStatement();
+    setExporting(false);
+    if (result.ok) setExported(true);
+  };
 
   const state: Display = session
     ? session.state === "REVOKED"
@@ -86,6 +96,10 @@ export default function DashboardPage() {
                 </div>
                 <Meter value={session.spent} max={session.maxSessionSpend} />
               </div>
+              <Button variant="ghost" block disabled={exporting} onClick={() => void onExport()}>
+                <Download size={16} strokeWidth={2.5} />{" "}
+                {exported ? "Statement downloaded ✓" : exporting ? "Signing…" : "Export signed statement"}
+              </Button>
               <Button variant="danger" block disabled={state !== "ACTIVE"} onClick={() => void revoke()}>
                 <Power size={16} strokeWidth={2.5} /> Revoke session
               </Button>

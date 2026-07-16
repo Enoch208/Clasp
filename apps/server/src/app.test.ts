@@ -5,7 +5,7 @@ import type { DelegationRequest, OperationRequest } from "@clasp/protocol";
 import { createApp } from "./app";
 import { Store } from "@clasp/wallet-core";
 import { FakeGateway, encodeFakeInvoice } from "@clasp/gateway";
-import { generateKeypair, signRequest, signDelegation, verifyResult } from "@clasp/token";
+import { generateKeypair, signRequest, signDelegation, verifyResult, verifyStatement } from "@clasp/token";
 import { createWalletCore } from "./clasp-wallet-core";
 
 const ORIGIN = "https://weather.example";
@@ -199,6 +199,28 @@ describe("clasp server", () => {
     const body = (await res.json()) as any;
     expect(res.status).toBe(404);
     expect(body.code).toBe("session_not_found");
+  });
+
+  it("issues a wallet-signed session statement reflecting spend and payment count", async () => {
+    const { sessionId } = await createSession();
+    await post("/operations", payment(sessionId, "100000000", 1), { "x-clasp-origin": ORIGIN });
+
+    const res = await fetch(`${base}/sessions/${sessionId}/statement`);
+    const body = (await res.json()) as any;
+    expect(res.status).toBe(200);
+    expect(body.statement.spent).toBe("100000000");
+    expect(body.statement.sessionRemaining).toBe("150000000");
+    expect(body.statement.paymentCount).toBe(1);
+    expect(body.statement.state).toBe("ACTIVE");
+    expect(verifyStatement(body.statement, walletKeys.publicKey)).toBe(true);
+
+    const tampered = { ...body.statement, spent: "0" };
+    expect(verifyStatement(tampered, walletKeys.publicKey)).toBe(false);
+  });
+
+  it("returns 404 for a statement on an unknown session", async () => {
+    const res = await fetch(`${base}/sessions/sess_missing/statement`);
+    expect(res.status).toBe(404);
   });
 
   it("rejects a malformed operation body with 400", async () => {

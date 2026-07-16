@@ -10,6 +10,7 @@ export {
   Clock,
   CloudSun,
   Coins,
+  Download,
   ExternalLink,
   Eye,
   Fingerprint,

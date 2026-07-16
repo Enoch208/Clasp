@@ -325,6 +325,13 @@ export class Store {
     };
   }
 
+  countPayments(sessionId: string): number {
+    const row = this.db
+      .prepare("SELECT COUNT(*) AS n FROM payments WHERE session_id = ?")
+      .get(sessionId) as { n: number };
+    return row.n;
+  }
+
   appendEvent(sessionId: string, type: string, data: unknown, now: number): void {
     this.db
       .prepare("INSERT INTO session_events (session_id, type, data, created_at) VALUES (?, ?, ?, ?)")
