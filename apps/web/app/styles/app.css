@@ -687,6 +687,20 @@
 .hash {
   font-size: 0.82rem;
 }
+.receipt-verified {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1f7d4d;
+}
+.receipt-verified code {
+  color: var(--of-muted);
+  font-weight: 400;
+}
 .report {
   border-top: 1px dashed rgba(15, 15, 20, 0.18);
   padding-top: 16px;

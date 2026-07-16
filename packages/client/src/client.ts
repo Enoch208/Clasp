@@ -1,12 +1,13 @@
 import {
   ClaspErrorException,
   isClaspError,
+  subAmounts,
   type ClaspError,
   type GrantablePermission,
   type OperationResult,
   type SessionState,
 } from "@clasp/protocol";
-import { generateKeypair, signRequest, signDelegation, type Keypair } from "@clasp/token";
+import { generateKeypair, signRequest, signDelegation, verifyResult, type Keypair } from "@clasp/token";
 
 export type ClaspEvent = "revoked";
 
@@ -41,6 +42,20 @@ export interface DelegateInput {
   childKeypair?: Keypair;
 }
 
+export type Receipt = OperationResult;
+
+export interface Capabilities {
+  sessionId: string;
+  origin: string;
+  operations: GrantablePermission[];
+  asset: string;
+  maxSinglePayment: string;
+  sessionRemaining: string;
+  expiresAt: string;
+  canDelegate: boolean;
+  active: boolean;
+}
+
 export interface SessionSnapshot {
   sessionId: string;
   origin: string;
@@ -63,6 +78,8 @@ export interface ClaspSession {
   request(operation: GrantablePermission, parameters?: Record<string, unknown>): Promise<OperationResult>;
   requestPayment(input: PaymentRequestInput): Promise<OperationResult>;
   delegate(input: DelegateInput): Promise<ClaspSession>;
+  getCapabilities(): Promise<Capabilities>;
+  verifyReceipt(receipt: Receipt): boolean;
   revoke(): Promise<SessionSnapshot>;
   getState(): Promise<SessionSnapshot>;
 }
@@ -189,6 +206,25 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
       return body.session;
     }
 
+    async function getCapabilities(): Promise<Capabilities> {
+      const snapshot = await getState();
+      return {
+        sessionId: snapshot.sessionId,
+        origin: snapshot.origin,
+        operations: snapshot.permissions as GrantablePermission[],
+        asset: snapshot.asset,
+        maxSinglePayment: snapshot.maxSinglePayment,
+        sessionRemaining: subAmounts(snapshot.maxSessionSpend, snapshot.spent),
+        expiresAt: snapshot.expiresAt,
+        canDelegate: (snapshot.permissions as string[]).includes("payments:auto"),
+        active: snapshot.state === "ACTIVE",
+      };
+    }
+
+    function verifyReceipt(receipt: Receipt): boolean {
+      return verifyResult(receipt, walletPubKey);
+    }
+
     return {
       sessionId,
       token,
@@ -197,6 +233,8 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
       request,
       requestPayment,
       delegate,
+      getCapabilities,
+      verifyReceipt,
       revoke,
       getState,
     };

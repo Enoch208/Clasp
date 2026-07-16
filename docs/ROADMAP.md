@@ -5,10 +5,10 @@ Clasp is deliberately scoped for the hackathon's Part 2 (applications on Fiber) 
 ## Shipped
 - **Attenuated sub-agent delegation.** A parent agent holding `payments:auto` mints a *weaker* child credential (lower caps, expiry no later than its own, same origin) with shared-root accounting: child spends draw down the parent's total, a child can never widen amount/expiry/permissions/origin (`attenuation_violation`), nesting is refused, and revoking the parent cascades to every child. The agent-economy story — live at `/delegate`.
 - **`payments:auto`** — the child spends autonomously under pre-approved, cryptographically enforced limits (humans approve once; agents operate within the envelope).
+- **Verifiable payment receipts** — every settled payment returns a wallet-signed result; `session.verifyReceipt()` proves settlement against the wallet key.
+- **Capability discovery** — `session.getCapabilities()` reports granted operations, caps, live remaining budget, and whether the session can delegate.
 
 ## Protocol & DX
-- **Signed payment receipts** — verifiable proof of settlement returned to the app.
-- **Capability discovery** — `session.getCapabilities()` so apps adapt to what was actually granted.
 - **React components** — `<ClaspProvider>` + `<ConnectFiberWalletButton>`.
 - **Session activity export.**
 

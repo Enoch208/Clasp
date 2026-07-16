@@ -113,4 +113,45 @@ describe("client SDK drives POST /operations end-to-end", () => {
     expect(state.spent).toBe("40000000");
     expect(state.state).toBe("ACTIVE");
   });
+
+  it("reports capabilities and decrements the remaining budget as it spends", async () => {
+    const client = newClient();
+    const session = await client.connect();
+
+    const before = await session.getCapabilities();
+    expect(before.operations).toContain("payments:request");
+    expect(before.sessionRemaining).toBe("250000000");
+    expect(before.canDelegate).toBe(false);
+    expect(before.active).toBe(true);
+
+    await session.requestPayment({ invoice: fakeInvoice(ASSET, "40000000"), amount: "40000000" });
+    const after = await session.getCapabilities();
+    expect(after.sessionRemaining).toBe("210000000");
+  });
+
+  it("flags canDelegate for a session granted payments:auto", async () => {
+    const client = createClaspClient({
+      serverUrl: base,
+      origin: ORIGIN,
+      app: { name: "Weather Agent" },
+      permissions: ["payments:auto", "payments:request"],
+      asset: ASSET,
+      maxSinglePayment: "100000000",
+      maxSessionSpend: "250000000",
+      now: () => now,
+    });
+    const session = await client.connect();
+    expect((await session.getCapabilities()).canDelegate).toBe(true);
+  });
+
+  it("returns a wallet-signed receipt the app can verify, and rejects a tampered one", async () => {
+    const client = newClient();
+    const session = await client.connect();
+
+    const receipt = await session.requestPayment({ invoice: fakeInvoice(ASSET, "40000000"), amount: "40000000" });
+    expect(session.verifyReceipt(receipt)).toBe(true);
+
+    const tampered = { ...receipt, amount: "1" };
+    expect(session.verifyReceipt(tampered)).toBe(false);
+  });
 });

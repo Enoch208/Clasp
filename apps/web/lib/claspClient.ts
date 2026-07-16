@@ -66,7 +66,7 @@ let childSession: ClaspSession | null = null;
 let attackNonce = 900_000;
 
 export type PayOutcome =
-  | { ok: true; paymentHash: string; amount: string; remaining: string }
+  | { ok: true; paymentHash: string; amount: string; remaining: string; receiptVerified: boolean; signature: string }
   | { ok: false; error: ClaspError };
 
 export async function checkHealth(): Promise<void> {
@@ -157,10 +157,18 @@ export async function pay(amount: string, purpose: string): Promise<PayOutcome> 
   try {
     const invoice = await mintInvoice(amount);
     const result = await session.requestPayment({ invoice, amount, purpose });
+    const receiptVerified = session.verifyReceipt(result);
     await refreshState();
     push({ ts: Date.now(), kind: "settled", label: `Paid ${formatCkb(amount)} · ${purpose}`, detail: result.paymentHash });
     set({ paymentCount: state.paymentCount + 1 });
-    return { ok: true, paymentHash: result.paymentHash ?? "", amount, remaining: result.sessionRemaining };
+    return {
+      ok: true,
+      paymentHash: result.paymentHash ?? "",
+      amount,
+      remaining: result.sessionRemaining,
+      receiptVerified,
+      signature: result.signature,
+    };
   } catch (error) {
     const claspError = asClaspError(error);
     push({ ts: Date.now(), kind: "blocked", label: "Payment blocked", code: claspError.code, detail: claspError.message });
@@ -219,11 +227,19 @@ export async function payAsChild(amount: string, purpose: string): Promise<PayOu
   try {
     const invoice = await mintInvoice(amount);
     const result = await childSession.requestPayment({ invoice, amount, purpose });
+    const receiptVerified = childSession.verifyReceipt(result);
     await refreshChild();
     await refreshState();
     push({ ts: Date.now(), kind: "settled", label: `Sub-agent paid ${formatCkb(amount)} · ${purpose}`, detail: result.paymentHash });
     set({ childPaymentCount: state.childPaymentCount + 1 });
-    return { ok: true, paymentHash: result.paymentHash ?? "", amount, remaining: result.sessionRemaining };
+    return {
+      ok: true,
+      paymentHash: result.paymentHash ?? "",
+      amount,
+      remaining: result.sessionRemaining,
+      receiptVerified,
+      signature: result.signature,
+    };
   } catch (error) {
     const claspError = asClaspError(error);
     push({ ts: Date.now(), kind: "blocked", label: "Sub-agent payment blocked", code: claspError.code, detail: claspError.message });

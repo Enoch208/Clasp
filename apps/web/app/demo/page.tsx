@@ -7,7 +7,7 @@ import { AppShell, SurfaceHead } from "@/components/AppShell";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
-import { CheckCircle2, CloudSun, Link2, Lock, ShieldOff } from "@/components/icons";
+import { CheckCircle2, CloudSun, Link2, Lock, ShieldCheck, ShieldOff } from "@/components/icons";
 import { useClasp, pay, activeSession, type PayOutcome } from "@/lib/claspClient";
 import { formatCkb, translatePermission, shortId } from "@/lib/format";
 import { weatherAgentPairing, weatherReport } from "@/lib/fixtures";
@@ -121,6 +121,12 @@ export default function DemoDappPage() {
                       <dd>{formatCkb(outcome.remaining)}</dd>
                     </div>
                   </dl>
+                  {outcome.receiptVerified ? (
+                    <p className="receipt-verified">
+                      <ShieldCheck size={14} strokeWidth={2.5} /> Wallet-signed receipt verified
+                      <code className="mono">{shortId(outcome.signature, 8, 6)}</code>
+                    </p>
+                  ) : null}
                 </div>
                 <div className="report">
                   <p className="report-head">
