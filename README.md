@@ -44,7 +44,7 @@ payment_hash: 0x3d2c38daf7b4945aacda7fae58348647bb8ad4cb7c65e5786103d0e1f9ccdcfa
 ## Architecture
 
 ```
-App (@clasp/client) ─▶ Relay (transport; a module boundary in this build)
+App (@clasp/client) ─▶ Relay (@clasp/relay — separate keyless service, holds no key/RPC)
       │  signed operation requests
       ▼
    wallet-core ── 10-step policy engine · session store (SQLite) · atomic spend · revocation
@@ -70,7 +70,8 @@ An agent holding `payments:auto` can mint an **attenuated** child credential for
 | `@clasp/wallet-core` | SQLite store + the 10-step `evaluate()` engine with atomic reserve-then-settle |
 | `@clasp/client` | The SDK: `createClaspClient()` → `connect()`, `requestPayment()`, `session.delegate()`, `getCapabilities()`, `verifyReceipt()`, `getStatement()` |
 | `@clasp/react` | React bindings: `<ClaspProvider>`, `useClaspSession()`, `<ConnectFiberWalletButton>` |
-| `apps/server` | Express service wiring relay ⊕ wallet-core ⊕ gateway |
+| `@clasp/relay` | Standalone **keyless** transport relay — forwards to the core, holds no key/RPC, trustless by signature |
+| `apps/server` | The wallet **core**: Express service wiring wallet-core ⊕ gateway (holds the wallet key + FNN URL) |
 | `apps/web` | Next.js: landing + wallet approval, dashboard, delegation, security lab, demo dApp, SDK example |
 
 ### Adopt it in an app

@@ -50,7 +50,7 @@ App (@Clasp/client SDK) → Relay (transport only, no keys/RPC)
   → User FNN node (Fiber testnet, private JSON-RPC — never public)
 ```
 
-In the hackathon build, relay + wallet-core + gateway run as **one Node service** (`apps/server`); the relay boundary is a *module boundary*, not a separate host. That is a documented honesty choice (`REAL_VS_MOCKED.md`), not a shortcut to paper over — the boundaries are still enforced in code and tests.
+The relay is now a **separate keyless service** (`apps/relay`, `@clasp/relay`): on `useclasp.xyz` every `/api` request passes through it (`GET /api/__relay` proves it) before reaching the wallet core. It holds no wallet key and no FNN RPC URL — it's transport-only, and trustless by signature (a malicious relay that tampers with a request is rejected `invalid_signature`; rewriting origin gives `origin_mismatch`). On the VPS: pm2 `clasp-relay` (PORT 8790, `CLASP_CORE_URL=http://127.0.0.1:8787`), Caddy `/api/*` → 8790 → core 8787. wallet-core + gateway still co-reside in `apps/server` (the core). End-to-end payload sealing (content-blind relay) remains the one documented simplification.
 
 ## Invariants that determine correctness (not discoverable from code)
 
