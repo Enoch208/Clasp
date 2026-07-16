@@ -24,11 +24,11 @@ Built for **Gone in 60ms: the Fiber Network Infrastructure Hackathon** — Categ
 
 ## ▶ Demo
 
-*~3:30 — not a screen recording. Puppeteer drives the **live production app**: a real session is scoped and reduced, four attacks are rejected by the real policy engine, a sub-agent is delegated and refused an over-grant, and a **real payment settles over a live Fiber testnet channel** with a wallet-signed receipt.*
+*A three-and-a-half minute run through the whole idea, on the live testnet. An app asks to connect and its limits get dialed down before it's let anywhere near the wallet. Then it turns hostile — and gets shut down four different ways. An AI sub-agent is handed a weaker key and can't widen it no matter how it tries. And at the end, real value actually moves: a payment settles on Fiber, with a receipt you can verify yourself.*
 
 [![Watch the demo](https://img.youtube.com/vi/HUzFXqXWo-A/maxresdefault.jpg)](https://useclasp.xyz/video)
 
-Try it yourself at **[useclasp.xyz](https://useclasp.xyz)** — connect the demo app, dial its limits down, try to break it in the Security Lab.
+Or skip the video and go break it yourself at **[useclasp.xyz](https://useclasp.xyz)** — connect the demo app, cut its limits, and see how far you get in the Security Lab.
 
 ---
 
