@@ -17,7 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://useclasp.xyz";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -29,6 +29,13 @@ export const metadata: Metadata = {
     description:
       "Limited, user-edited, time-boxed, revocable wallet authority. Pair → Review → Approve → Pay → Block the attack → Revoke.",
     type: "website",
+    url: siteUrl,
+    siteName: "Clasp",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Clasp — Connect apps to Fiber wallets. Never hand over the keys.",
+    description: "The secure app-to-wallet session layer for Fiber — limited, user-edited, revocable authority.",
   },
 };
 
