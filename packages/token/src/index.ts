@@ -14,3 +14,4 @@ export {
   verifyResult,
   type Keypair,
 } from "./sign";
+export { generateBoxKeypair, boxPublicFromPrivate, sealTo, openSealed, type BoxKeypair } from "./seal";

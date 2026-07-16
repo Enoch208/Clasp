@@ -22,6 +22,7 @@ const SNIPPET = `import {
   permissions: ["payments:request"], asset: "CKB",
   maxSinglePayment: "100000000",
   maxSessionSpend: "300000000",
+  sealed: true, // encrypt payloads end-to-end
 }}>
   <Checkout />
 </ClaspProvider>
@@ -56,8 +57,12 @@ export function SdkSurface({ serverUrl }: { serverUrl: string }) {
 
   return (
     <div className="grid-2">
-      <Card title="Integration" right={<Tag tone="muted">@clasp/react</Tag>}>
+      <Card title="Integration" right={<Tag tone="ok">🔒 relay-blind</Tag>}>
         <pre className="codeblock">{SNIPPET}</pre>
+        <p className="pay-note">
+          With <code className="mono">sealed: true</code>, each payment is encrypted end-to-end to the wallet core
+          (X25519 + XChaCha20-Poly1305). The standalone relay forwards ciphertext it can&apos;t read.
+        </p>
         <div style={{ marginTop: 18 }}>
           <ConnectFiberWalletButton className="ui-btn ui-btn-accent ui-btn-block">
             <Link2 size={17} strokeWidth={2.5} /> Connect Fiber wallet

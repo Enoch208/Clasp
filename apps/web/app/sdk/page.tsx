@@ -14,6 +14,7 @@ const config: ClaspClientConfig = {
   asset: "CKB",
   maxSinglePayment: "100000000",
   maxSessionSpend: "300000000",
+  sealed: true,
 };
 
 export default function SdkPage() {

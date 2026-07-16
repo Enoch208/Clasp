@@ -14,6 +14,9 @@ import {
   signDelegation,
   verifyResult,
   verifyStatement as verifyStatementToken,
+  generateBoxKeypair,
+  sealTo,
+  openSealed,
   type Keypair,
 } from "@clasp/token";
 
@@ -29,6 +32,7 @@ export interface ClaspClientConfig {
   maxSessionSpend: string;
   sessionTtlMs?: number;
   appKeypair?: Keypair;
+  sealed?: boolean;
   fetch?: typeof fetch;
   now?: () => number;
 }
@@ -112,6 +116,16 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
 
   const listeners = new Map<ClaspEvent, Set<(sessionId: string) => void>>();
   let current: ClaspSession | null = null;
+  let boxKeyCache: string | null = null;
+
+  async function coreBoxKey(): Promise<string> {
+    if (boxKeyCache) return boxKeyCache;
+    const res = await doFetch(`${config.serverUrl}/box-key`);
+    const body = (await res.json()) as { boxPublicKey?: string };
+    if (!body.boxPublicKey) throw new Error("clasp: server does not support sealed requests");
+    boxKeyCache = body.boxPublicKey;
+    return boxKeyCache;
+  }
 
   function on(event: ClaspEvent, listener: (sessionId: string) => void): void {
     const set = listeners.get(event) ?? new Set();
@@ -147,17 +161,35 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
         timestamp: Math.floor(now() / 1000),
       };
       const signed = { ...unsigned, signature: signRequest(unsigned, signingKeypair.privateKey) };
-      const res = await doFetch(`${config.serverUrl}/operations`, {
-        method: "POST",
-        headers: { ...JSON_HEADERS, "x-clasp-origin": config.origin },
-        body: JSON.stringify(signed),
-      });
-      const body = await res.json();
+      const body = config.sealed ? await sendSealed(signed) : await sendPlain(signed);
       if (isClaspError(body)) {
         if (body.code === "session_revoked") emit("revoked", sessionId);
         throw new ClaspErrorException(body);
       }
       return body as OperationResult;
+    }
+
+    async function sendPlain(signed: unknown): Promise<unknown> {
+      const res = await doFetch(`${config.serverUrl}/operations`, {
+        method: "POST",
+        headers: { ...JSON_HEADERS, "x-clasp-origin": config.origin },
+        body: JSON.stringify(signed),
+      });
+      return res.json();
+    }
+
+    async function sendSealed(signed: unknown): Promise<unknown> {
+      const reply = generateBoxKeypair();
+      const inner = JSON.stringify({ request: signed, origin: config.origin, replyPub: reply.publicKey });
+      const envelope = sealTo(await coreBoxKey(), inner);
+      const res = await doFetch(`${config.serverUrl}/sealed`, {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ envelope }),
+      });
+      const body = (await res.json()) as { envelope?: string };
+      if (!body.envelope) throw new Error("clasp: sealed request was not accepted by the server");
+      return JSON.parse(openSealed(reply.privateKey, body.envelope));
     }
 
     function requestPayment(input: PaymentRequestInput): Promise<OperationResult> {

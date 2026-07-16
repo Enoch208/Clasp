@@ -6,7 +6,7 @@ import { createClaspClient } from "@clasp/client";
 import { createRelay, type RelayOptions } from "@clasp/relay";
 import { Store } from "@clasp/wallet-core";
 import { FakeGateway, encodeFakeInvoice } from "@clasp/gateway";
-import { generateKeypair, verifyResult } from "@clasp/token";
+import { generateKeypair, generateBoxKeypair, verifyResult } from "@clasp/token";
 import { createApp } from "./app";
 import { createWalletCore } from "./clasp-wallet-core";
 
@@ -31,7 +31,7 @@ describe("standalone relay — transport only, trustless by signature", () => {
     now = START;
     walletKeys = generateKeypair();
     const walletCore = createWalletCore({ store: new Store(), gateway: new FakeGateway(), walletKeys, now: () => now });
-    core = createApp(walletCore, { mode: "DEMO" }).listen(0);
+    core = createApp(walletCore, { mode: "DEMO", boxKeypair: generateBoxKeypair() }).listen(0);
     coreBase = await listen(core);
   });
 
@@ -46,7 +46,7 @@ describe("standalone relay — transport only, trustless by signature", () => {
     return listen(server);
   }
 
-  function newClient(serverUrl: string) {
+  function newClient(serverUrl: string, sealed = false) {
     return createClaspClient({
       serverUrl,
       origin: ORIGIN,
@@ -55,6 +55,7 @@ describe("standalone relay — transport only, trustless by signature", () => {
       asset: ASSET,
       maxSinglePayment: "100000000",
       maxSessionSpend: "250000000",
+      sealed,
       now: () => now,
     });
   }
@@ -112,5 +113,45 @@ describe("standalone relay — transport only, trustless by signature", () => {
     await expect(
       session.requestPayment({ invoice: fakeInvoice(ASSET, "40000000"), amount: "40000000" }),
     ).rejects.toMatchObject({ error: { code: "origin_mismatch" } });
+  });
+
+  it("in sealed mode the relay sees only ciphertext, yet the payment still settles", async () => {
+    let sealedBody = "";
+    const relayBase = await startRelay({
+      transform: (path, body) => {
+        if (path === "/sealed") sealedBody = body;
+        return body;
+      },
+    });
+    const invoice = fakeInvoice(ASSET, "40000000");
+    const session = await newClient(relayBase, true).connect();
+
+    const result = await session.requestPayment({ invoice, amount: "40000000", purpose: "premium report" });
+
+    expect(result.status).toBe("succeeded");
+    expect(verifyResult(result, walletKeys.publicKey)).toBe(true);
+    // the relay forwarded /sealed, but the body reveals none of the payment contents
+    expect(sealedBody).not.toBe("");
+    expect(sealedBody).not.toContain(invoice);
+    expect(sealedBody).not.toContain("40000000");
+    expect(sealedBody).not.toContain("premium report");
+    expect(sealedBody).not.toContain(ORIGIN);
+  });
+
+  it("a relay that tampers with the sealed envelope breaks it (the core cannot open it)", async () => {
+    const relayBase = await startRelay({
+      transform: (path, body) => {
+        if (path !== "/sealed") return body;
+        const outer = JSON.parse(body) as { envelope: string };
+        const inner = JSON.parse(outer.envelope) as { ct: string };
+        inner.ct = inner.ct.slice(0, -2) + (inner.ct.endsWith("00") ? "11" : "00");
+        return JSON.stringify({ envelope: JSON.stringify(inner) });
+      },
+    });
+    const session = await newClient(relayBase, true).connect();
+
+    await expect(
+      session.requestPayment({ invoice: fakeInvoice(ASSET, "40000000"), amount: "40000000" }),
+    ).rejects.toThrow();
   });
 });
