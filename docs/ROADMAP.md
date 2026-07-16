@@ -7,9 +7,9 @@ Clasp is deliberately scoped for the hackathon's Part 2 (applications on Fiber) 
 - **`payments:auto`** — the child spends autonomously under pre-approved, cryptographically enforced limits (humans approve once; agents operate within the envelope).
 - **Verifiable payment receipts** — every settled payment returns a wallet-signed result; `session.verifyReceipt()` proves settlement against the wallet key.
 - **Capability discovery** — `session.getCapabilities()` reports granted operations, caps, live remaining budget, and whether the session can delegate.
+- **React components** — `@clasp/react`: `<ClaspProvider>`, `useClaspSession()`, `<ConnectFiberWalletButton>`; demonstrated by the `/sdk` surface.
 
 ## Protocol & DX
-- **React components** — `<ClaspProvider>` + `<ConnectFiberWalletButton>`.
 - **Session activity export.**
 
 ## Hardening

@@ -12,6 +12,7 @@ Clasp's honesty layer, stated plainly. The UI banner always reflects which mode 
 - **Ed25519 tokens** — the wallet signs the session facts; the app signs every operation request; tampering invalidates the signature.
 - **Verifiable receipts** — every settled payment returns a wallet-signed `OperationResult`; `session.verifyReceipt()` checks it against the wallet key, so the app holds cryptographic proof of settlement (tampering flips it to invalid). Shown live on the demo payment card.
 - **Capability discovery** — `session.getCapabilities()` reports the granted operations, asset, per-payment cap, live remaining budget, expiry, and whether the session can delegate.
+- **React bindings** — `@clasp/react` (`<ClaspProvider>`, `useClaspSession()`, `<ConnectFiberWalletButton>`) drives the whole `/sdk` surface as a second app (Acme Checkout) on the same policy engine.
 - **Allow-listed gateway** — only `new_invoice` / `parse_invoice` / `send_payment` / `get_payment` are reachable; a structural test asserts no raw-RPC passthrough.
 - **Real Fiber testnet settlement** — the deployed site (`useclasp.xyz`) runs the real `FnnGateway` against real `nervos/fiber` nodes and settles over a real funded channel. Verified payment: `0x3d2c38daf7b4945aacda7fae58348647bb8ad4cb7c65e5786103d0e1f9ccdcfa` (`get_payment` → `Success`).
 
@@ -24,6 +25,6 @@ Clasp's honesty layer, stated plainly. The UI banner always reflects which mode 
 
 ## Not built (roadmap, never faked)
 
-Standalone encrypted relay · WebAuthn passkeys · QR / deep-link pairing · multi-asset (UDT) · high-risk channel-management permissions · React components (`<ClaspProvider>`).
+Standalone encrypted relay · WebAuthn passkeys · QR / deep-link pairing · multi-asset (UDT) · high-risk channel-management permissions.
 
 The mode banner, this document, and the code agree. An honest "not yet" beats a fake green badge.

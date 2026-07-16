@@ -12,6 +12,7 @@
   "dependencies": {
     "@clasp/client": "workspace:*",
     "@clasp/protocol": "workspace:*",
+    "@clasp/react": "workspace:*",
     "@clasp/token": "workspace:*",
     "lucide-react": "^0.460.0",
     "next": "16.2.10",

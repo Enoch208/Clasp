@@ -69,8 +69,29 @@ An agent holding `payments:auto` can mint an **attenuated** child credential for
 | `@clasp/gateway` | `Gateway` interface (exactly 4 methods) · `FakeGateway` · real `FnnGateway` |
 | `@clasp/wallet-core` | SQLite store + the 10-step `evaluate()` engine with atomic reserve-then-settle |
 | `@clasp/client` | The SDK: `createClaspClient()` → `connect()`, `requestPayment()`, `session.delegate()`, `getCapabilities()`, `verifyReceipt()` |
+| `@clasp/react` | React bindings: `<ClaspProvider>`, `useClaspSession()`, `<ConnectFiberWalletButton>` |
 | `apps/server` | Express service wiring relay ⊕ wallet-core ⊕ gateway |
-| `apps/web` | Next.js: landing + wallet approval, dashboard, delegation, security lab, demo dApp |
+| `apps/web` | Next.js: landing + wallet approval, dashboard, delegation, security lab, demo dApp, SDK example |
+
+### Adopt it in an app
+
+```tsx
+import { ClaspProvider, ConnectFiberWalletButton, useClaspSession } from "@clasp/react";
+
+<ClaspProvider config={{ serverUrl, origin, app: { name: "Acme Checkout" },
+  permissions: ["payments:request"], asset: "CKB",
+  maxSinglePayment: "100000000", maxSessionSpend: "300000000" }}>
+  <Checkout />
+</ClaspProvider>;
+
+// inside <Checkout/>
+const { pay, capabilities } = useClaspSession();
+<ConnectFiberWalletButton />;
+const r = await pay({ invoice, amount: "100000000" });
+if (r.ok && r.receipt.verified) unlock();
+```
+
+Live at **[useclasp.xyz/sdk](https://useclasp.xyz/sdk)** — a second app (Acme Checkout) driving the same policy engine through `@clasp/react`.
 
 ## Security model
 

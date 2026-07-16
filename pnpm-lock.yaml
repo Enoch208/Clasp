@@ -60,6 +60,9 @@ importers:
       '@clasp/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@clasp/react':
+        specifier: workspace:*
+        version: link:../../packages/react
       '@clasp/token':
         specifier: workspace:*
         version: link:../../packages/token
@@ -133,6 +136,28 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  packages/react:
+    dependencies:
+      '@clasp/client':
+        specifier: workspace:*
+        version: link:../client
+      '@clasp/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      react:
+        specifier: '>=18'
+        version: 19.2.4
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      '@types/react':
+        specifier: ^19
+        version: 19.2.17
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

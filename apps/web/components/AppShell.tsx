@@ -11,6 +11,7 @@ const LINKS = [
   ["Dashboard", "/dashboard"],
   ["Delegate", "/delegate"],
   ["Security Lab", "/lab"],
+  ["SDK", "/sdk"],
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
