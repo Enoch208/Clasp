@@ -4,7 +4,7 @@
 
 Clasp is open-source infrastructure — a pairing protocol, a wallet **policy engine**, an **allow-listed Fiber gateway**, and a **TypeScript SDK** — that lets any application or AI agent connect to a [Fiber Network](https://www.fiber.world/) wallet with **limited, user-edited, time-boxed, revocable** authority, instead of a permanent RPC URL and credential.
 
-[![MIT](https://img.shields.io/badge/license-MIT-black)](LICENSE) ![tests](https://img.shields.io/badge/tests-110%20passing-2FA46A) ![mode](https://img.shields.io/badge/network-CKB%20testnet-FFCC33) [![live](https://img.shields.io/badge/demo-useclasp.xyz-5BA4FF)](https://useclasp.xyz)
+[![MIT](https://img.shields.io/badge/license-MIT-black)](LICENSE) ![tests](https://img.shields.io/badge/tests-122%20passing-2FA46A) ![mode](https://img.shields.io/badge/network-CKB%20testnet-FFCC33) [![live](https://img.shields.io/badge/demo-useclasp.xyz-5BA4FF)](https://useclasp.xyz)
 
 > **Live demo → [useclasp.xyz](https://useclasp.xyz)** — running in **REAL FIBER TESTNET** mode. Payments settle over a real Fiber payment channel.
 
@@ -44,8 +44,8 @@ payment_hash: 0x3d2c38daf7b4945aacda7fae58348647bb8ad4cb7c65e5786103d0e1f9ccdcfa
 ## Architecture
 
 ```
-App (@clasp/client) ─▶ Relay (@clasp/relay — separate keyless service, holds no key/RPC)
-      │  signed operation requests
+App (@clasp/client) ─▶ Relay (@clasp/relay — separate keyless service; content-blind in sealed mode)
+      │  signed operation requests (sealed: X25519 + XChaCha20-Poly1305 to the core)
       ▼
    wallet-core ── 10-step policy engine · session store (SQLite) · atomic spend · revocation
       │  allow-listed high-level ops (4 methods only)
@@ -65,12 +65,12 @@ An agent holding `payments:auto` can mint an **attenuated** child credential for
 | Package | Responsibility |
 |---|---|
 | `@clasp/protocol` | Zod schemas · permission vocabulary · error codes · BigInt money math · state machine |
-| `@clasp/token` | Ed25519 sign/verify for sessions, operations, results (isomorphic Node/browser) |
+| `@clasp/token` | Ed25519 sign/verify for sessions, operations, results · X25519 + XChaCha20-Poly1305 sealed box (isomorphic) |
 | `@clasp/gateway` | `Gateway` interface (exactly 4 methods) · `FakeGateway` · real `FnnGateway` |
 | `@clasp/wallet-core` | SQLite store + the 10-step `evaluate()` engine with atomic reserve-then-settle |
 | `@clasp/client` | The SDK: `createClaspClient()` → `connect()`, `requestPayment()`, `session.delegate()`, `getCapabilities()`, `verifyReceipt()`, `getStatement()` |
 | `@clasp/react` | React bindings: `<ClaspProvider>`, `useClaspSession()`, `<ConnectFiberWalletButton>` |
-| `@clasp/relay` | Standalone **keyless** transport relay — forwards to the core, holds no key/RPC, trustless by signature |
+| `@clasp/relay` | Standalone **keyless** transport relay — forwards to the core, holds no key/RPC, trustless by signature, and **content-blind** in sealed mode |
 | `apps/server` | The wallet **core**: Express service wiring wallet-core ⊕ gateway (holds the wallet key + FNN URL) |
 | `apps/web` | Next.js: landing + wallet approval, dashboard, delegation, security lab, demo dApp, SDK example |
 
@@ -81,7 +81,8 @@ import { ClaspProvider, ConnectFiberWalletButton, useClaspSession } from "@clasp
 
 <ClaspProvider config={{ serverUrl, origin, app: { name: "Acme Checkout" },
   permissions: ["payments:request"], asset: "CKB",
-  maxSinglePayment: "100000000", maxSessionSpend: "300000000" }}>
+  maxSinglePayment: "100000000", maxSessionSpend: "300000000",
+  sealed: true }}>  {/* end-to-end encrypt payloads; the relay stays blind */}
   <Checkout />
 </ClaspProvider>;
 
@@ -113,7 +114,7 @@ Open `localhost:3000` → Demo → Connect → Wallet (reduce) → Approve → p
 ## Tests
 
 ```bash
-pnpm test                        # 110 tests: protocol, token, gateway, wallet-core, client, server
+pnpm test                        # 122 tests: protocol, token, gateway, wallet-core, client, server
 pnpm --filter @clasp/web test    # web logic
 pnpm -r --if-present run typecheck
 ```

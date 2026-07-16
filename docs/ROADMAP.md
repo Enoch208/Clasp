@@ -14,7 +14,7 @@ Clasp is deliberately scoped for the hackathon's Part 2 (applications on Fiber) 
 - **Session activity event stream** — subscribe to server-side `session_events` in real time (the export exists; live streaming does not).
 
 ## Hardening
-- **End-to-end sealed relay** — the standalone keyless relay ships (`@clasp/relay`, live in front of `/api`); the remaining step is sealing payloads so the relay is blind to request contents (it is already trustless by signature, just not content-private).
+- **Relay on a separate host** — the standalone keyless, content-blind relay ships (`@clasp/relay`, live in front of `/api`; sealed X25519 + XChaCha20-Poly1305). Today it's a separate *process* on the same VPS; the remaining step is moving it to its own host.
 - **WebAuthn / passkey** approval ceremony (Touch ID / Face ID / Windows Hello).
 - **Unforgeable browser `Origin`** binding in addition to the declared origin.
 - **QR + deep-link pairing** (`clasp://`).
