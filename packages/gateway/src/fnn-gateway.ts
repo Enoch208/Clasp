@@ -10,8 +10,11 @@ import type {
 export type FiberCurrency = "Fibb" | "Fibt" | "Fibd";
 
 export interface FnnGatewayConfig {
-  /** Private FNN JSON-RPC endpoint. Never public — reached only from inside the gateway. */
+  /** Private FNN JSON-RPC endpoint of the payer/wallet node (send_payment, get_payment). Never public. */
   url: string;
+  /** Optional payee node used to mint/parse invoices (new_invoice, parse_invoice) — e.g. a merchant.
+   *  Defaults to `url`. Splitting it lets the wallet pay a real counterparty instead of itself. */
+  invoiceUrl?: string;
   /** Testnet (Fibt) by default. */
   currency?: FiberCurrency;
   pollTimeoutMs?: number;
@@ -54,6 +57,7 @@ function normalizeStatus(status: string): PaymentStatus {
  */
 export class FnnGateway implements Gateway {
   private readonly url: string;
+  private readonly invoiceUrl: string;
   private readonly currency: FiberCurrency;
   private readonly pollTimeoutMs: number;
   private readonly pollIntervalMs: number;
@@ -61,14 +65,15 @@ export class FnnGateway implements Gateway {
 
   constructor(config: FnnGatewayConfig) {
     this.url = config.url;
+    this.invoiceUrl = config.invoiceUrl ?? config.url;
     this.currency = config.currency ?? "Fibt";
     this.pollTimeoutMs = config.pollTimeoutMs ?? 60_000;
     this.pollIntervalMs = config.pollIntervalMs ?? 500;
     this.doFetch = config.fetch ?? ((input, init) => fetch(input, init));
   }
 
-  private async call<T>(method: string, params: unknown): Promise<T> {
-    const response = await this.doFetch(this.url, {
+  private async call<T>(url: string, method: string, params: unknown): Promise<T> {
+    const response = await this.doFetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
@@ -87,7 +92,7 @@ export class FnnGateway implements Gateway {
 
   async newInvoice(params: NewInvoiceParams): Promise<Invoice> {
     const currency = this.currencyFor(params.asset);
-    const result = await this.call<{ invoice_address: string }>("new_invoice", [
+    const result = await this.call<{ invoice_address: string }>(this.invoiceUrl, "new_invoice", [
       {
         amount: toHexAmount(params.amount),
         currency,
@@ -100,7 +105,7 @@ export class FnnGateway implements Gateway {
   }
 
   async getInvoice(invoice: string): Promise<Invoice> {
-    const result = await this.call<{ invoice: { amount?: string | number | null } }>("parse_invoice", [
+    const result = await this.call<{ invoice: { amount?: string | number | null } }>(this.invoiceUrl, "parse_invoice", [
       { invoice },
     ]);
     return { invoice, amount: fromAmount(result.invoice.amount), asset: "CKB" };
@@ -108,7 +113,7 @@ export class FnnGateway implements Gateway {
 
   async sendPayment(params: SendPaymentParams): Promise<Payment> {
     this.currencyFor(params.asset);
-    const sent = await this.call<{ payment_hash: string; status: string }>("send_payment", [
+    const sent = await this.call<{ payment_hash: string; status: string }>(this.url, "send_payment", [
       { invoice: params.invoice },
     ]);
     const status = await this.waitForSettlement(sent.payment_hash, sent.status);
@@ -122,7 +127,7 @@ export class FnnGateway implements Gateway {
   }
 
   async getPayment(paymentHash: string): Promise<Payment> {
-    const result = await this.call<{ payment_hash: string; status: string }>("get_payment", [
+    const result = await this.call<{ payment_hash: string; status: string }>(this.url, "get_payment", [
       { payment_hash: paymentHash },
     ]);
     return {
@@ -143,7 +148,7 @@ export class FnnGateway implements Gateway {
       }
       await sleep(this.pollIntervalMs);
       waited += this.pollIntervalMs;
-      const result = await this.call<{ status: string }>("get_payment", [{ payment_hash: paymentHash }]);
+      const result = await this.call<{ status: string }>(this.url, "get_payment", [{ payment_hash: paymentHash }]);
       status = normalizeStatus(result.status);
     }
     return status;

@@ -4,13 +4,14 @@ import { FnnGateway } from "./fnn-gateway";
 interface CapturedRequest {
   method: string;
   params: unknown;
+  url: string;
 }
 
 function mockFetch(route: (method: string, params: unknown, callIndex: number) => unknown) {
   const requests: CapturedRequest[] = [];
-  const fn = (async (_url: unknown, init: { body: string }) => {
+  const fn = (async (url: unknown, init: { body: string }) => {
     const body = JSON.parse(init.body) as { id: number; method: string; params: unknown };
-    requests.push({ method: body.method, params: body.params });
+    requests.push({ method: body.method, params: body.params, url: String(url) });
     const result = route(body.method, body.params, requests.length);
     return new Response(JSON.stringify({ jsonrpc: "2.0", id: body.id, result }), {
       status: 200,
@@ -100,5 +101,20 @@ describe("FnnGateway", () => {
     const { fn } = mockFetch(() => ({}));
     const gateway = new FnnGateway({ url: "http://node/rpc", fetch: fn });
     await expect(gateway.newInvoice({ amount: "1", asset: "BTC" })).rejects.toThrow(/CKB only/);
+  });
+
+  it("routes invoice ops to invoiceUrl (merchant) and payment ops to url (wallet)", async () => {
+    const { fn, requests } = mockFetch((method) =>
+      method === "new_invoice"
+        ? { invoice_address: "fibt1" }
+        : method === "send_payment"
+          ? { payment_hash: "0x1", status: "Success" }
+          : {},
+    );
+    const gateway = new FnnGateway({ url: "http://wallet", invoiceUrl: "http://merchant", fetch: fn });
+    await gateway.newInvoice({ amount: "100000000", asset: "CKB" });
+    await gateway.sendPayment({ invoice: "fibt1", amount: "100000000", asset: "CKB" });
+    expect(requests.find((r) => r.method === "new_invoice")!.url).toBe("http://merchant");
+    expect(requests.find((r) => r.method === "send_payment")!.url).toBe("http://wallet");
   });
 });
