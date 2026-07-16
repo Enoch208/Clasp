@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import type { OperationRequest } from "@clasp/protocol";
+import type { DelegationRequest, OperationRequest } from "@clasp/protocol";
 import { createApp } from "./app";
 import { Store } from "@clasp/wallet-core";
 import { FakeGateway, encodeFakeInvoice } from "@clasp/gateway";
-import { generateKeypair, signRequest, verifyResult } from "@clasp/token";
+import { generateKeypair, signRequest, signDelegation, verifyResult } from "@clasp/token";
 import { createWalletCore } from "./clasp-wallet-core";
 
 const ORIGIN = "https://weather.example";
@@ -204,5 +204,83 @@ describe("clasp server", () => {
   it("rejects a malformed operation body with 400", async () => {
     const res = await post("/operations", { version: "1", nonsense: true }, { "x-clasp-origin": ORIGIN });
     expect(res.status).toBe(400);
+  });
+
+  function autoFacts(appPubKey: string) {
+    return { ...facts(appPubKey), permissions: ["payments:auto", "payments:request"] };
+  }
+
+  function signedDelegation(
+    parentSessionId: string,
+    childAppPubKey: string,
+    overrides: Partial<DelegationRequest> = {},
+  ) {
+    const unsigned: Omit<DelegationRequest, "signature"> = {
+      version: "1",
+      parentSessionId,
+      delegationId: `del_${childAppPubKey.slice(0, 8)}`,
+      childAppPubKey,
+      permissions: ["payments:request"],
+      asset: ASSET,
+      maxSinglePayment: "40000000",
+      maxSessionSpend: "80000000",
+      expiresAt: new Date(START + 1800_000).toISOString(),
+      timestamp: Math.floor(now / 1000),
+      ...overrides,
+    };
+    return { ...unsigned, signature: signDelegation(unsigned, appKeys.privateKey) };
+  }
+
+  it("mints an attenuated child session that draws from the parent's pool", async () => {
+    const parent = (await post("/sessions", autoFacts(appKeys.publicKey))).body as { sessionId: string };
+    const childKeys = generateKeypair();
+
+    const del = await post("/delegations", signedDelegation(parent.sessionId, childKeys.publicKey), {
+      "x-clasp-origin": ORIGIN,
+    });
+    expect(del.status).toBe(201);
+    expect(del.body.session.state).toBe("ACTIVE");
+    expect(del.body.session.maxSessionSpend).toBe("80000000");
+    const childId = del.body.childSessionId as string;
+
+    const unsigned = {
+      version: "1" as const,
+      sessionId: childId,
+      requestId: "req_child_1",
+      operation: "payments:request" as const,
+      parameters: { invoice: fakeInvoice(ASSET, "40000000"), amount: "40000000", asset: ASSET },
+      nonce: 1,
+      timestamp: Math.floor(now / 1000),
+    };
+    const childPayment = { ...unsigned, signature: signRequest(unsigned, childKeys.privateKey) };
+    const paid = await post("/operations", childPayment, { "x-clasp-origin": ORIGIN });
+    expect(paid.body.status).toBe("succeeded");
+
+    const parentState = (await (await fetch(`${base}/sessions/${parent.sessionId}`)).json()) as any;
+    expect(parentState.session.spent).toBe("40000000");
+  });
+
+  it("rejects a delegation that tries to widen the parent's session cap", async () => {
+    const parent = (await post("/sessions", autoFacts(appKeys.publicKey))).body as { sessionId: string };
+    const childKeys = generateKeypair();
+
+    const del = await post(
+      "/delegations",
+      signedDelegation(parent.sessionId, childKeys.publicKey, { maxSessionSpend: "500000000" }),
+      { "x-clasp-origin": ORIGIN },
+    );
+    expect(del.status).toBe(200);
+    expect(del.body.code).toBe("attenuation_violation");
+    expect(del.body.reason).toBe("session_spend_widen");
+  });
+
+  it("refuses to delegate from a session without payments:auto", async () => {
+    const parent = await createSession();
+    const childKeys = generateKeypair();
+
+    const del = await post("/delegations", signedDelegation(parent.sessionId, childKeys.publicKey), {
+      "x-clasp-origin": ORIGIN,
+    });
+    expect(del.body.code).toBe("permission_denied");
   });
 });

@@ -1,6 +1,13 @@
 import express, { type Express } from "express";
 import { z } from "zod";
-import { amountString, claspError, grantablePermission, operationRequestSchema } from "@clasp/protocol";
+import {
+  amountString,
+  claspError,
+  delegationRequestSchema,
+  grantablePermission,
+  isClaspError,
+  operationRequestSchema,
+} from "@clasp/protocol";
 import type { WalletCore } from "./wallet-core";
 
 const createSessionBodySchema = z.object({
@@ -61,6 +68,17 @@ export function createApp(walletCore: WalletCore, opts: { mode?: "REAL" | "DEMO"
     }
     const origin = req.get("x-clasp-origin") ?? req.get("origin") ?? "";
     res.status(200).json(await walletCore.evaluate(parsed.data, { origin }));
+  });
+
+  app.post("/delegations", (req, res) => {
+    const parsed = delegationRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+      return;
+    }
+    const origin = req.get("x-clasp-origin") ?? req.get("origin") ?? "";
+    const result = walletCore.delegate(parsed.data, { origin });
+    res.status(isClaspError(result) ? 200 : 201).json(result);
   });
 
   app.post("/sessions/:id/revoke", (req, res) => {

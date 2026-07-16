@@ -6,7 +6,7 @@ import {
   type OperationResult,
   type SessionState,
 } from "@clasp/protocol";
-import { generateKeypair, signRequest, type Keypair } from "@clasp/token";
+import { generateKeypair, signRequest, signDelegation, type Keypair } from "@clasp/token";
 
 export type ClaspEvent = "revoked";
 
@@ -31,6 +31,16 @@ export interface PaymentRequestInput {
   purpose?: string;
 }
 
+export interface DelegateInput {
+  permissions: GrantablePermission[];
+  maxSinglePayment: string;
+  maxSessionSpend: string;
+  asset?: string;
+  ttlMs?: number;
+  expiresAt?: string;
+  childKeypair?: Keypair;
+}
+
 export interface SessionSnapshot {
   sessionId: string;
   origin: string;
@@ -49,8 +59,10 @@ export interface ClaspSession {
   sessionId: string;
   token: string;
   walletPubKey: string;
+  appPubKey: string;
   request(operation: GrantablePermission, parameters?: Record<string, unknown>): Promise<OperationResult>;
   requestPayment(input: PaymentRequestInput): Promise<OperationResult>;
+  delegate(input: DelegateInput): Promise<ClaspSession>;
   revoke(): Promise<SessionSnapshot>;
   getState(): Promise<SessionSnapshot>;
 }
@@ -88,7 +100,12 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
     listeners.get(event)?.forEach((listener) => listener(sessionId));
   }
 
-  function buildSession(sessionId: string, token: string, walletPubKey: string): ClaspSession {
+  function buildSession(
+    sessionId: string,
+    token: string,
+    walletPubKey: string,
+    signingKeypair: Keypair,
+  ): ClaspSession {
     let nonce = 0;
 
     async function request(operation: GrantablePermission, parameters: Record<string, unknown> = {}): Promise<OperationResult> {
@@ -102,7 +119,7 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
         nonce,
         timestamp: Math.floor(now() / 1000),
       };
-      const signed = { ...unsigned, signature: signRequest(unsigned, appKeypair.privateKey) };
+      const signed = { ...unsigned, signature: signRequest(unsigned, signingKeypair.privateKey) };
       const res = await doFetch(`${config.serverUrl}/operations`, {
         method: "POST",
         headers: { ...JSON_HEADERS, "x-clasp-origin": config.origin },
@@ -126,6 +143,33 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
       return request("payments:request", parameters);
     }
 
+    async function delegate(input: DelegateInput): Promise<ClaspSession> {
+      const childKeypair = input.childKeypair ?? generateKeypair();
+      const expiresAt = input.expiresAt ?? new Date(now() + (input.ttlMs ?? sessionTtlMs)).toISOString();
+      const unsigned = {
+        version: "1" as const,
+        parentSessionId: sessionId,
+        delegationId: `del_${globalThis.crypto.randomUUID()}`,
+        childAppPubKey: childKeypair.publicKey,
+        permissions: input.permissions,
+        asset: input.asset ?? config.asset,
+        maxSinglePayment: input.maxSinglePayment,
+        maxSessionSpend: input.maxSessionSpend,
+        expiresAt,
+        timestamp: Math.floor(now() / 1000),
+      };
+      const signed = { ...unsigned, signature: signDelegation(unsigned, signingKeypair.privateKey) };
+      const res = await doFetch(`${config.serverUrl}/delegations`, {
+        method: "POST",
+        headers: { ...JSON_HEADERS, "x-clasp-origin": config.origin },
+        body: JSON.stringify(signed),
+      });
+      const body = await res.json();
+      if (isClaspError(body)) throw new ClaspErrorException(body);
+      const created = body as { childSessionId: string; token: string; walletPubKey: string };
+      return buildSession(created.childSessionId, created.token, created.walletPubKey, childKeypair);
+    }
+
     async function revoke(): Promise<SessionSnapshot> {
       const res = await doFetch(`${config.serverUrl}/sessions/${sessionId}/revoke`, {
         method: "POST",
@@ -145,7 +189,17 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
       return body.session;
     }
 
-    return { sessionId, token, walletPubKey, request, requestPayment, revoke, getState };
+    return {
+      sessionId,
+      token,
+      walletPubKey,
+      appPubKey: signingKeypair.publicKey,
+      request,
+      requestPayment,
+      delegate,
+      revoke,
+      getState,
+    };
   }
 
   async function connect(): Promise<ClaspSession> {
@@ -167,7 +221,7 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
       throw new Error(`clasp: session creation failed (${res.status})`);
     }
     const created = (await res.json()) as { sessionId: string; token: string; walletPubKey: string };
-    current = buildSession(created.sessionId, created.token, created.walletPubKey);
+    current = buildSession(created.sessionId, created.token, created.walletPubKey, appKeypair);
     return current;
   }
 

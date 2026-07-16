@@ -6,6 +6,8 @@ export {
   verifySession,
   signRequest,
   verifyRequest,
+  signDelegation,
+  verifyDelegation,
   signResult,
   verifyResult,
   type Keypair,

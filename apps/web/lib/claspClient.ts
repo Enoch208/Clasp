@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { createClaspClient, type ClaspClient, type ClaspSession, type SessionSnapshot } from "@clasp/client";
 import { generateKeypair, signRequest, type Keypair } from "@clasp/token";
-import { isClaspError, type ClaspError, type GrantablePermission, type OperationRequest, type OperationResult } from "@clasp/protocol";
+import { addAmounts, isClaspError, type ClaspError, type GrantablePermission, type OperationRequest, type OperationResult } from "@clasp/protocol";
 import { formatCkb } from "./format";
 
 const SERVER_URL = process.env.NEXT_PUBLIC_CLASP_SERVER_URL ?? "http://localhost:8787";
@@ -27,6 +27,9 @@ interface State {
   mode: "REAL" | "DEMO";
   connecting: boolean;
   session: SessionSnapshot | null;
+  child: SessionSnapshot | null;
+  delegating: boolean;
+  childPaymentCount: number;
   events: EventRow[];
   paymentCount: number;
   lastError: ClaspError | null;
@@ -37,6 +40,9 @@ let state: State = {
   mode: "DEMO",
   connecting: false,
   session: null,
+  child: null,
+  delegating: false,
+  childPaymentCount: 0,
   events: [],
   paymentCount: 0,
   lastError: null,
@@ -56,6 +62,7 @@ function push(event: Omit<EventRow, "id">): void {
 let appKeypair: Keypair | null = null;
 let client: ClaspClient | null = null;
 let session: ClaspSession | null = null;
+let childSession: ClaspSession | null = null;
 let attackNonce = 900_000;
 
 export type PayOutcome =
@@ -99,8 +106,17 @@ export async function connect(input: ConnectInput): Promise<void> {
       void refreshState();
     });
     session = await client.connect();
+    childSession = null;
     const snapshot = await session.getState();
-    set({ session: snapshot, connecting: false, paymentCount: 0, events: [], lastError: null });
+    set({
+      session: snapshot,
+      child: null,
+      childPaymentCount: 0,
+      connecting: false,
+      paymentCount: 0,
+      events: [],
+      lastError: null,
+    });
     push({ ts: Date.now(), kind: "approved", label: `Session approved for ${APP_NAME}` });
   } catch (error) {
     set({ connecting: false, serverOnline: false });
@@ -112,6 +128,15 @@ async function refreshState(): Promise<void> {
   if (!session) return;
   try {
     set({ session: await session.getState() });
+  } catch {
+    /* server unreachable; keep last-known state */
+  }
+}
+
+async function refreshChild(): Promise<void> {
+  if (!childSession) return;
+  try {
+    set({ child: await childSession.getState() });
   } catch {
     /* server unreachable; keep last-known state */
   }
@@ -148,7 +173,89 @@ export async function revoke(): Promise<void> {
   if (!session) return;
   await session.revoke();
   await refreshState();
+  await refreshChild();
   push({ ts: Date.now(), kind: "revoked", label: "Session revoked by the user" });
+}
+
+export interface DelegateChildInput {
+  maxSinglePayment: string;
+  maxSessionSpend: string;
+  durationMins: number;
+}
+
+export type DelegateOutcome = { ok: true; child: SessionSnapshot } | { ok: false; error: ClaspError };
+
+function childExpiryIso(durationMins: number): string | undefined {
+  const parentExpiry = state.session ? Date.parse(state.session.expiresAt) : NaN;
+  const wanted = Date.now() + durationMins * 60_000;
+  const bounded = Number.isNaN(parentExpiry) ? wanted : Math.min(wanted, parentExpiry);
+  return new Date(bounded).toISOString();
+}
+
+export async function delegate(input: DelegateChildInput): Promise<DelegateOutcome> {
+  if (!session) return { ok: false, error: fallbackError() };
+  set({ delegating: true });
+  try {
+    childSession = await session.delegate({
+      permissions: ["payments:request"],
+      maxSinglePayment: input.maxSinglePayment,
+      maxSessionSpend: input.maxSessionSpend,
+      expiresAt: childExpiryIso(input.durationMins),
+    });
+    const snapshot = await childSession.getState();
+    set({ child: snapshot, delegating: false, childPaymentCount: 0 });
+    push({ ts: Date.now(), kind: "approved", label: `Delegated a sub-agent · cap ${formatCkb(input.maxSessionSpend)}` });
+    return { ok: true, child: snapshot };
+  } catch (error) {
+    const claspError = asClaspError(error);
+    set({ delegating: false, lastError: claspError });
+    push({ ts: Date.now(), kind: "blocked", label: "Delegation blocked", code: claspError.code, detail: claspError.message });
+    return { ok: false, error: claspError };
+  }
+}
+
+export async function payAsChild(amount: string, purpose: string): Promise<PayOutcome> {
+  if (!childSession) return { ok: false, error: fallbackError() };
+  try {
+    const invoice = await mintInvoice(amount);
+    const result = await childSession.requestPayment({ invoice, amount, purpose });
+    await refreshChild();
+    await refreshState();
+    push({ ts: Date.now(), kind: "settled", label: `Sub-agent paid ${formatCkb(amount)} · ${purpose}`, detail: result.paymentHash });
+    set({ childPaymentCount: state.childPaymentCount + 1 });
+    return { ok: true, paymentHash: result.paymentHash ?? "", amount, remaining: result.sessionRemaining };
+  } catch (error) {
+    const claspError = asClaspError(error);
+    push({ ts: Date.now(), kind: "blocked", label: "Sub-agent payment blocked", code: claspError.code, detail: claspError.message });
+    set({ lastError: claspError });
+    return { ok: false, error: claspError };
+  }
+}
+
+export async function attemptOverGrant(): Promise<ClaspError> {
+  if (!session || !state.session) return fallbackError();
+  const parent = state.session;
+  const widened = addAmounts(parent.maxSessionSpend, parent.maxSessionSpend);
+  try {
+    childSession = await session.delegate({
+      permissions: ["payments:request"],
+      maxSinglePayment: parent.maxSinglePayment,
+      maxSessionSpend: widened,
+      expiresAt: parent.expiresAt,
+    });
+    return { code: "gateway_failure", message: "over-grant was unexpectedly accepted", retryable: false, nextAction: "abort" };
+  } catch (error) {
+    const claspError = asClaspError(error);
+    push({
+      ts: Date.now(),
+      kind: "blocked",
+      label: `Sub-agent tried to widen the budget to ${formatCkb(widened)}`,
+      code: claspError.code,
+      detail: claspError.message,
+    });
+    set({ lastError: claspError });
+    return claspError;
+  }
 }
 
 function signOperation(operation: string, parameters: Record<string, unknown>, nonce: number): OperationRequest {
@@ -238,4 +345,8 @@ export function useClasp(): State {
 
 export function activeSession(snapshot: State): SessionSnapshot | null {
   return snapshot.session && snapshot.session.state === "ACTIVE" ? snapshot.session : null;
+}
+
+export function activeChild(snapshot: State): SessionSnapshot | null {
+  return snapshot.child && snapshot.child.state === "ACTIVE" ? snapshot.child : null;
 }

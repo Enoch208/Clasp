@@ -4,10 +4,11 @@ Clasp's honesty layer, stated plainly. The UI banner always reflects which mode 
 
 ## Real (enforced in code, tested, or verified on-chain)
 
-- **The 10-step policy engine** — every operation is checked in order; errors are structured data (`@clasp/wallet-core`). 86 automated tests, including the core-8.
+- **The 10-step policy engine** — every operation is checked in order; errors are structured data (`@clasp/wallet-core`). 104 automated tests, including the core-8.
 - **Atomic spend accounting** — a single `BEGIN IMMEDIATE` SQLite transaction with `UNIQUE(session_id, nonce)` and `UNIQUE(request_id)`. A two-concurrent-reservations test proves two spends cannot jointly exceed the cap.
 - **The four attacks** — `permission_denied`, `single_payment_limit_exceeded`, `replay_detected`, `origin_mismatch` are produced by the real engine on real signed requests. Nothing in the security lab is simulated.
-- **Revocation** — moves the session to `REVOKED`; all later requests fail with `session_revoked`.
+- **Revocation** — moves the session to `REVOKED`; all later requests fail with `session_revoked`. Revoking a parent **cascades** to every delegated child.
+- **Attenuated delegation** — an agent with `payments:auto` mints a child credential checked ⊆ its parent on every axis (permissions, per-payment cap, session cap, expiry, origin); widening any of them returns `attenuation_violation`, and nesting is refused. Child spends draw from the parent's pool via the same atomic reservation. Enforced by `delegate()` and exercised in the test suite.
 - **Ed25519 tokens** — the wallet signs the session facts; the app signs every operation request; tampering invalidates the signature.
 - **Allow-listed gateway** — only `new_invoice` / `parse_invoice` / `send_payment` / `get_payment` are reachable; a structural test asserts no raw-RPC passthrough.
 - **Real Fiber testnet settlement** — the deployed site (`useclasp.xyz`) runs the real `FnnGateway` against real `nervos/fiber` nodes and settles over a real funded channel. Verified payment: `0x3d2c38daf7b4945aacda7fae58348647bb8ad4cb7c65e5786103d0e1f9ccdcfa` (`get_payment` → `Success`).
@@ -21,6 +22,6 @@ Clasp's honesty layer, stated plainly. The UI banner always reflects which mode 
 
 ## Not built (roadmap, never faked)
 
-Attenuated sub-agent delegation · `payments:auto` autonomous spending · signed receipts · capability discovery · standalone encrypted relay · WebAuthn passkeys · QR / deep-link pairing · multi-asset (UDT) · high-risk channel-management permissions.
+Signed payment receipts · capability discovery (`session.getCapabilities()`) · standalone encrypted relay · WebAuthn passkeys · QR / deep-link pairing · multi-asset (UDT) · high-risk channel-management permissions.
 
 The mode banner, this document, and the code agree. An honest "not yet" beats a fake green badge.

@@ -19,6 +19,7 @@ export interface StoredSession {
   appPubKey: string;
   expiresAt: string;
   state: SessionState;
+  parentId: string | null;
   createdAt: number;
 }
 
@@ -49,6 +50,7 @@ export interface SessionFactsInput {
   maxSessionSpend: string;
   expiresAt: string;
   appPubKey: string;
+  parentId?: string | null;
 }
 
 export interface ReserveInput {
@@ -75,6 +77,7 @@ interface SessionRow {
   app_pubkey: string;
   expires_at: string;
   state: string;
+  parent_id: string | null;
   created_at: number;
 }
 
@@ -110,6 +113,7 @@ export class Store {
         app_pubkey TEXT NOT NULL,
         expires_at TEXT NOT NULL,
         state TEXT NOT NULL,
+        parent_id TEXT,
         created_at INTEGER NOT NULL
       );
       CREATE TABLE IF NOT EXISTS consumed_requests (
@@ -137,6 +141,10 @@ export class Store {
         created_at INTEGER NOT NULL
       );
     `);
+    const columns = this.db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
+    if (!columns.some((column) => column.name === "parent_id")) {
+      this.db.exec("ALTER TABLE sessions ADD COLUMN parent_id TEXT");
+    }
   }
 
   private rowToSession(row: SessionRow): StoredSession {
@@ -151,6 +159,7 @@ export class Store {
       appPubKey: row.app_pubkey,
       expiresAt: row.expires_at,
       state: row.state as SessionState,
+      parentId: row.parent_id ?? null,
       createdAt: row.created_at,
     };
   }
@@ -159,8 +168,8 @@ export class Store {
     this.db
       .prepare(
         `INSERT INTO sessions
-          (id, origin, permissions, asset, max_single_payment, max_session_spend, spent, app_pubkey, expires_at, state, created_at)
-         VALUES (@id, @origin, @permissions, @asset, @maxSingle, @maxSession, '0', @appPubKey, @expiresAt, 'ACTIVE', @now)`,
+          (id, origin, permissions, asset, max_single_payment, max_session_spend, spent, app_pubkey, expires_at, state, parent_id, created_at)
+         VALUES (@id, @origin, @permissions, @asset, @maxSingle, @maxSession, '0', @appPubKey, @expiresAt, 'ACTIVE', @parentId, @now)`,
       )
       .run({
         id: facts.sessionId,
@@ -171,6 +180,7 @@ export class Store {
         maxSession: facts.maxSessionSpend,
         appPubKey: facts.appPubKey,
         expiresAt: facts.expiresAt,
+        parentId: facts.parentId ?? null,
         now,
       });
     this.appendEvent(facts.sessionId, "session_created", { origin: facts.origin }, now);
@@ -195,12 +205,23 @@ export class Store {
         .prepare("INSERT INTO consumed_requests (session_id, nonce, request_id, created_at) VALUES (?, ?, ?, ?)")
         .run(args.sessionId, args.nonce, args.requestId, now);
       const row = this.db
-        .prepare("SELECT spent, max_session_spend FROM sessions WHERE id = ?")
-        .get(args.sessionId) as { spent: string; max_session_spend: string } | undefined;
+        .prepare("SELECT spent, max_session_spend, parent_id FROM sessions WHERE id = ?")
+        .get(args.sessionId) as { spent: string; max_session_spend: string; parent_id: string | null } | undefined;
       if (!row) throw new OverLimitError("session not found during reservation");
       const nextSpent = addAmounts(row.spent, args.amount);
       if (gtAmounts(nextSpent, row.max_session_spend)) throw new OverLimitError("session cap exceeded");
       this.db.prepare("UPDATE sessions SET spent = ? WHERE id = ?").run(nextSpent, args.sessionId);
+      if (row.parent_id) {
+        const parent = this.db
+          .prepare("SELECT spent, max_session_spend FROM sessions WHERE id = ?")
+          .get(row.parent_id) as { spent: string; max_session_spend: string } | undefined;
+        if (!parent) throw new OverLimitError("parent session not found during reservation");
+        const nextParentSpent = addAmounts(parent.spent, args.amount);
+        if (gtAmounts(nextParentSpent, parent.max_session_spend)) {
+          throw new OverLimitError("parent session cap exceeded");
+        }
+        this.db.prepare("UPDATE sessions SET spent = ? WHERE id = ?").run(nextParentSpent, row.parent_id);
+      }
       return { spent: nextSpent, remaining: subAmounts(row.max_session_spend, nextSpent) };
     });
 
@@ -216,11 +237,21 @@ export class Store {
 
   refundSpend(sessionId: string, amount: string): void {
     const refund = this.db.transaction(() => {
-      const row = this.db.prepare("SELECT spent FROM sessions WHERE id = ?").get(sessionId) as
-        | { spent: string }
+      const row = this.db.prepare("SELECT spent, parent_id FROM sessions WHERE id = ?").get(sessionId) as
+        | { spent: string; parent_id: string | null }
         | undefined;
       if (!row) return;
       this.db.prepare("UPDATE sessions SET spent = ? WHERE id = ?").run(subAmounts(row.spent, amount), sessionId);
+      if (row.parent_id) {
+        const parent = this.db.prepare("SELECT spent FROM sessions WHERE id = ?").get(row.parent_id) as
+          | { spent: string }
+          | undefined;
+        if (parent) {
+          this.db
+            .prepare("UPDATE sessions SET spent = ? WHERE id = ?")
+            .run(subAmounts(parent.spent, amount), row.parent_id);
+        }
+      }
     });
     refund();
   }
@@ -231,7 +262,22 @@ export class Store {
     assertTransition(session.state, "REVOKED");
     this.db.prepare("UPDATE sessions SET state = 'REVOKED' WHERE id = ?").run(id);
     this.appendEvent(id, "session_revoked", {}, now);
+    const children = this.db
+      .prepare("SELECT id FROM sessions WHERE parent_id = ? AND state = 'ACTIVE'")
+      .all(id) as { id: string }[];
+    for (const child of children) {
+      this.db.prepare("UPDATE sessions SET state = 'REVOKED' WHERE id = ?").run(child.id);
+      this.appendEvent(child.id, "session_revoked", { reason: "parent_revoked" }, now);
+      this.appendEvent(id, "delegate_revoked", { childSessionId: child.id }, now);
+    }
     return this.getSession(id)!;
+  }
+
+  listChildren(parentId: string): StoredSession[] {
+    const rows = this.db
+      .prepare("SELECT * FROM sessions WHERE parent_id = ? ORDER BY created_at")
+      .all(parentId) as SessionRow[];
+    return rows.map((row) => this.rowToSession(row));
   }
 
   expireIfDue(id: string, now: number): StoredSession | undefined {

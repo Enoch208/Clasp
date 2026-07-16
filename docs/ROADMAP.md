@@ -2,9 +2,9 @@
 
 Clasp is deliberately scoped for the hackathon's Part 2 (applications on Fiber) — every app built there will need exactly this session layer. Post-hackathon work lives here, not in the submission.
 
-## Next up — the differentiator
-- **Attenuated sub-agent delegation.** A parent agent holding `payments:auto` mints a *weaker* child credential (lower caps, shorter expiry, same origin) with shared-root accounting: child spends draw down the parent's total, and a child can never widen amount/expiry/permissions/origin (`attenuation_violation`). The agent-economy story.
-- **`payments:auto`** — autonomous spending under pre-approved, cryptographically enforced limits (humans approve once; agents operate within the envelope).
+## Shipped
+- **Attenuated sub-agent delegation.** A parent agent holding `payments:auto` mints a *weaker* child credential (lower caps, expiry no later than its own, same origin) with shared-root accounting: child spends draw down the parent's total, a child can never widen amount/expiry/permissions/origin (`attenuation_violation`), nesting is refused, and revoking the parent cascades to every child. The agent-economy story — live at `/delegate`.
+- **`payments:auto`** — the child spends autonomously under pre-approved, cryptographically enforced limits (humans approve once; agents operate within the envelope).
 
 ## Protocol & DX
 - **Signed payment receipts** — verifiable proof of settlement returned to the app.

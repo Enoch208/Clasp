@@ -64,6 +64,21 @@ export const operationRequestSchema = z.object({
 });
 export type OperationRequest = z.infer<typeof operationRequestSchema>;
 
+export const delegationRequestSchema = z.object({
+  version: z.literal("1"),
+  parentSessionId: z.string().min(1),
+  delegationId: z.string().min(1),
+  childAppPubKey: z.string().min(1),
+  permissions: z.array(grantablePermission),
+  asset: z.string().min(1),
+  maxSinglePayment: amountString,
+  maxSessionSpend: amountString,
+  expiresAt: z.string().min(1),
+  timestamp: z.number().int(),
+  signature: z.string().min(1),
+});
+export type DelegationRequest = z.infer<typeof delegationRequestSchema>;
+
 export const operationResultSchema = z.object({
   requestId: z.string().min(1),
   status: z.enum(["succeeded", "failed"]),

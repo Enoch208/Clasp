@@ -121,6 +121,18 @@ describe("Store — state transitions", () => {
     expect(expired?.state).toBe("EXPIRED");
     expect(store.listEvents("sess_1").map((e) => e.type)).toContain("session_expired");
   });
+
+  it("cascades revocation to delegated children", () => {
+    const store = freshStore();
+    store.createSession(facts({ sessionId: "parent_1" }), NOW);
+    store.createSession({ ...facts({ sessionId: "child_1" }), parentId: "parent_1" }, NOW);
+
+    store.revoke("parent_1", NOW + 1000);
+
+    expect(store.getSession("child_1")?.state).toBe("REVOKED");
+    expect(store.listEvents("parent_1").map((e) => e.type)).toContain("delegate_revoked");
+    expect(store.listChildren("parent_1").map((c) => c.id)).toEqual(["child_1"]);
+  });
 });
 
 describe("Store — payments", () => {

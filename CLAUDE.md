@@ -19,7 +19,7 @@ The pnpm monorepo is scaffolded and Spec 1 (backend spine + policy core) is buil
 - `apps/server` — Express spine; `createApp(walletCore)` depends only on the `WalletCore` interface, and `clasp-wallet-core.ts` implements it over the real packages. `FakeGateway` injected; `DEMO MODE` banner.
 - `apps/web` — Next.js 16 marketing **landing** + four **product surfaces** (`/wallet`, `/dashboard`, `/lab`, `/demo`) on the ported editorial/neo-brutalist design (plain CSS under `.overflow-theme`: `landing.css`, `app.css`, `clasp.css`, `hover-grid.css`; icons via the single `components/icons.ts`). **It still runs on `lib/mockStore.ts`** (which reuses `@clasp/protocol`'s error factory + money math) — wiring `@clasp/client` in is the next step; flip the banner to `REAL` when `CLASP_FNN_URL` is set.
 
-Convention reconciled during integration: `OperationRequest.timestamp` is in **seconds** (per PRD §9 wire format); `evaluate` multiplies by 1000 to compare against `now` (ms). Real `FnnGateway` + VPS deploy is still Spec 4; delegation is Spec 5.
+Convention reconciled during integration: `OperationRequest.timestamp` is in **seconds** (per PRD §9 wire format); `evaluate` multiplies by 1000 to compare against `now` (ms). Real `FnnGateway` + VPS deploy (Spec 4) and delegation (Spec 5) are both built and live: `delegate()` in `@clasp/wallet-core` (attenuation-only child credentials, shared-root spend pool, cascade revoke), `POST /delegations`, `session.delegate()` in the SDK, and the `/delegate` web surface.
 
 ## Commands
 

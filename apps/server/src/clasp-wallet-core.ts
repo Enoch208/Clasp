@@ -1,11 +1,12 @@
-import type { SessionFacts } from "@clasp/protocol";
-import { Store, evaluate, type StoredSession } from "@clasp/wallet-core";
+import { isClaspError, type ClaspError, type SessionFacts } from "@clasp/protocol";
+import { Store, evaluate, delegate, type StoredSession } from "@clasp/wallet-core";
 import { signSession, type Keypair } from "@clasp/token";
 import type { Gateway } from "@clasp/gateway";
 import type {
   WalletCore,
   CreateSessionInput,
   CreateSessionResult,
+  DelegateResultView,
   EvaluateMeta,
   SessionView,
 } from "./wallet-core";
@@ -88,6 +89,25 @@ export function createWalletCore({ store, gateway, walletKeys, now }: Deps): Wal
       if (!session) return null;
       if (session.state !== "ACTIVE") return toView(session);
       return toView(store.revoke(sessionId, now()));
+    },
+
+    delegate(request, meta: EvaluateMeta): DelegateResultView | ClaspError {
+      const parent = store.getSession(request.parentSessionId);
+      const parentToken = parent ? signSession(toFacts(parent), walletKeys.privateKey) : "";
+      const result = delegate(request, parentToken, {
+        store,
+        walletKeys,
+        now: now(),
+        origin: meta.origin,
+        newSessionId: nextSessionId,
+      });
+      if (isClaspError(result)) return result;
+      return {
+        childSessionId: result.childSessionId,
+        session: toView(result.child),
+        token: result.childToken,
+        walletPubKey: walletKeys.publicKey,
+      };
     },
 
     async evaluate(request, meta: EvaluateMeta) {

@@ -9,6 +9,7 @@ const LINKS = [
   ["Demo", "/demo"],
   ["Wallet", "/wallet"],
   ["Dashboard", "/dashboard"],
+  ["Delegate", "/delegate"],
   ["Security Lab", "/lab"],
 ] as const;
 

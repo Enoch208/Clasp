@@ -29,6 +29,17 @@ Every operation request runs through `evaluate()` (`@clasp/wallet-core`) in this
 | **Replay** | `UNIQUE(session_id, nonce)` + `UNIQUE(request_id)` — a resent request is rejected and the payment count stays put |
 | **Public RPC exposure** | The gateway exposes only 4 allow-listed methods; the FNN JSON-RPC is bound to `127.0.0.1` and never tunneled. (Fiber's node itself refuses to bind a public RPC without Biscuit auth — the same principle.) |
 
+## Delegation (attenuation-only)
+
+`delegate()` lets an agent holding `payments:auto` mint a child credential for a sub-agent. It is authority that can only *narrow*:
+
+1. The parent session is `ACTIVE`, its stored facts match its signed token, and the delegation request is signed by the parent's app key → `invalid_signature`; the request origin matches the parent's → `origin_mismatch`; the timestamp is fresh → `stale_timestamp`.
+2. The parent must actually hold `payments:auto` → `permission_denied`.
+3. The child is checked ⊆ the parent on **every** axis — permissions (subset), asset (equal), per-payment cap (≤), session cap (≤), expiry (≤), origin (inherited, never set by the child). Any widening → `attenuation_violation`.
+4. **Nesting is refused** — a child cannot itself delegate → `attenuation_violation`.
+
+The child is a normal session whose facts the wallet signs; it carries a server-side `parent_id`. Its spends run the **same** atomic reservation, additionally drawing down the parent's pool inside the one transaction — so parent + children can never *jointly* exceed the parent's cap, and the child is still bound by its own smaller cap. Revoking the parent **cascades** to every child, so delegated authority never outlives the session it came from.
+
 ## Keys
 
 - **Wallet keypair** (server) signs `SessionFacts` into the session token.

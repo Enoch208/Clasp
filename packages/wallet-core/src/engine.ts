@@ -26,7 +26,20 @@ export interface EvaluateContext {
   token: string;
 }
 
-function factsMatchSession(facts: SessionFacts, session: StoredSession): boolean {
+export function sessionToFacts(session: StoredSession): SessionFacts {
+  return {
+    sessionId: session.id,
+    origin: session.origin,
+    permissions: session.permissions,
+    asset: session.asset,
+    maxSinglePayment: session.maxSinglePayment,
+    maxSessionSpend: session.maxSessionSpend,
+    expiresAt: session.expiresAt,
+    appPubKey: session.appPubKey,
+  };
+}
+
+export function factsMatchSession(facts: SessionFacts, session: StoredSession): boolean {
   return (
     facts.sessionId === session.id &&
     facts.origin === session.origin &&

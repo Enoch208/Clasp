@@ -10,7 +10,7 @@ export const weatherAgentPairing: PairingRequest = {
     name: "Weather Agent",
     origin: "https://weather.example",
   },
-  requestedPermissions: ["node:read", "channels:read", "invoices:create", "payments:request"],
+  requestedPermissions: ["node:read", "channels:read", "invoices:create", "payments:request", "payments:auto"],
   requestedLimits: {
     asset: "CKB",
     maxSinglePayment: "100000000",
