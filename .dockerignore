@@ -1,0 +1,9 @@
+**/node_modules
+**/.next
+**/*.db
+**/*.sqlite*
+.git
+video
+apps/web
+posts
+docs

@@ -1,0 +1,33 @@
+services:
+  core:
+    build: .
+    image: clasp:local
+    command: ["apps/server/node_modules/.bin/tsx", "apps/server/src/main.ts"]
+    environment:
+      PORT: "8787"
+      CLASP_DB: /data/clasp.db
+      CLASP_WALLET_PRIVATE_KEY: ${CLASP_WALLET_PRIVATE_KEY:-}
+      CLASP_BOX_PRIVATE_KEY: ${CLASP_BOX_PRIVATE_KEY:-}
+      CLASP_OWNER_PUBKEYS: ${CLASP_OWNER_PUBKEYS:-}
+      CLASP_FNN_URL: ${CLASP_FNN_URL:-}
+      CLASP_FNN_INVOICE_URL: ${CLASP_FNN_INVOICE_URL:-}
+    volumes:
+      - clasp-data:/data
+    expose:
+      - "8787"
+    restart: unless-stopped
+
+  relay:
+    image: clasp:local
+    command: ["apps/relay/node_modules/.bin/tsx", "apps/relay/src/main.ts"]
+    environment:
+      PORT: "8790"
+      CLASP_CORE_URL: http://core:8787
+    ports:
+      - "8790:8790"
+    depends_on:
+      - core
+    restart: unless-stopped
+
+volumes:
+  clasp-data:
