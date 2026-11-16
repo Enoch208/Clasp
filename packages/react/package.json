@@ -1,17 +1,39 @@
 {
-  "name": "@clasp/react",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@useclasp/react",
+  "version": "0.1.0",
+  "description": "React bindings for Clasp: <ClaspProvider>, useClaspSession(), <ConnectFiberWalletButton>.",
+  "license": "MIT",
   "type": "module",
+  "homepage": "https://useclasp.xyz",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Enoch208/Clasp.git",
+    "directory": "packages/react"
+  },
+  "keywords": ["fiber", "ckb", "nervos", "wallet", "react", "payments", "ai-agents"],
   "exports": {
     ".": "./src/index.ts"
   },
+  "files": ["dist", "README.md"],
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "tsup"
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js",
+        "require": "./dist/index.cjs"
+      }
+    }
   },
   "dependencies": {
-    "@clasp/client": "workspace:*",
-    "@clasp/protocol": "workspace:*"
+    "@useclasp/client": "workspace:^"
   },
   "peerDependencies": {
     "react": ">=18"
@@ -19,6 +41,7 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/react": "^19",
+    "tsup": "^8.3.0",
     "typescript": "^5.7.0"
   }
 }

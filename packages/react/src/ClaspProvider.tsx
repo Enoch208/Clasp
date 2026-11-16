@@ -10,8 +10,8 @@ import {
   type DelegateInput,
   type PaymentRequestInput,
   type SessionSnapshot,
-} from "@clasp/client";
-import { isClaspError, type ClaspError } from "@clasp/protocol";
+} from "@useclasp/client";
+import { isClaspError, type ClaspError } from "@useclasp/client";
 import {
   ClaspContext,
   type ClaspContextValue,

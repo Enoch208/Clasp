@@ -17,7 +17,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@clasp/client": "workspace:*",
+    "@useclasp/client": "workspace:*",
     "@clasp/relay": "workspace:*",
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",

@@ -7,8 +7,8 @@ import type {
   DelegateInput,
   PaymentRequestInput,
   SessionSnapshot,
-} from "@clasp/client";
-import type { ClaspError, OperationResult } from "@clasp/protocol";
+} from "@useclasp/client";
+import type { ClaspError, OperationResult } from "@useclasp/client";
 
 export type ClaspStatus = "idle" | "connecting" | "connected" | "error";
 

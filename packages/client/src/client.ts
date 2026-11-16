@@ -1,10 +1,14 @@
 import {
   ClaspErrorException,
+  claspError,
   isClaspError,
   subAmounts,
   type ClaspError,
   type GrantablePermission,
+  type HoldView,
   type OperationResult,
+  type RateLimit,
+  type SessionApproval,
   type SessionState,
   type SessionStatement,
 } from "@clasp/protocol";
@@ -12,6 +16,7 @@ import {
   generateKeypair,
   signRequest,
   signDelegation,
+  signRevoke,
   verifyResult,
   verifyStatement as verifyStatementToken,
   generateBoxKeypair,
@@ -19,6 +24,7 @@ import {
   openSealed,
   type Keypair,
 } from "@clasp/token";
+import type { ApprovalRequest } from "./wallet";
 
 export type ClaspEvent = "revoked";
 
@@ -32,6 +38,7 @@ export interface ClaspClientConfig {
   maxSessionSpend: string;
   sessionTtlMs?: number;
   appKeypair?: Keypair;
+  approve: (request: ApprovalRequest) => SessionApproval | Promise<SessionApproval>;
   sealed?: boolean;
   fetch?: typeof fetch;
   now?: () => number;
@@ -52,6 +59,13 @@ export interface DelegateInput {
   ttlMs?: number;
   expiresAt?: string;
   childKeypair?: Keypair;
+  approvalThreshold?: string;
+  rateLimit?: RateLimit;
+}
+
+export interface WaitOptions {
+  timeoutMs?: number;
+  intervalMs?: number;
 }
 
 export type Receipt = OperationResult;
@@ -66,6 +80,8 @@ export interface Capabilities {
   expiresAt: string;
   canDelegate: boolean;
   active: boolean;
+  approvalThreshold?: string;
+  rateLimit?: RateLimit;
 }
 
 export interface SessionSnapshot {
@@ -80,6 +96,9 @@ export interface SessionSnapshot {
   expiresAt: string;
   state: SessionState;
   createdAt: string;
+  ownerPubKey?: string;
+  approvalThreshold?: string;
+  rateLimit?: RateLimit;
 }
 
 export interface ClaspSession {
@@ -89,6 +108,8 @@ export interface ClaspSession {
   appPubKey: string;
   request(operation: GrantablePermission, parameters?: Record<string, unknown>): Promise<OperationResult>;
   requestPayment(input: PaymentRequestInput): Promise<OperationResult>;
+  getHold(requestId: string): Promise<HoldView>;
+  waitForApproval(requestId: string, options?: WaitOptions): Promise<OperationResult>;
   delegate(input: DelegateInput): Promise<ClaspSession>;
   getCapabilities(): Promise<Capabilities>;
   verifyReceipt(receipt: Receipt): boolean;
@@ -107,6 +128,15 @@ export interface ClaspClient {
 }
 
 const JSON_HEADERS = { "content-type": "application/json" };
+
+const HOLD_OUTCOMES: Partial<Record<HoldView["status"], ClaspError["code"]>> = {
+  denied: "approval_denied",
+  expired: "approval_expired",
+  cancelled: "session_revoked",
+  failed: "gateway_failure",
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function createClaspClient(config: ClaspClientConfig): ClaspClient {
   const appKeypair = config.appKeypair ?? generateKeypair();
@@ -215,6 +245,8 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
         maxSinglePayment: input.maxSinglePayment,
         maxSessionSpend: input.maxSessionSpend,
         expiresAt,
+        ...(input.approvalThreshold !== undefined ? { approvalThreshold: input.approvalThreshold } : {}),
+        ...(input.rateLimit !== undefined ? { rateLimit: input.rateLimit } : {}),
         timestamp: Math.floor(now() / 1000),
       };
       const signed = { ...unsigned, signature: signDelegation(unsigned, signingKeypair.privateKey) };
@@ -229,11 +261,31 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
       return buildSession(created.childSessionId, created.token, created.walletPubKey, childKeypair);
     }
 
+    async function getHold(requestId: string): Promise<HoldView> {
+      const res = await doFetch(`${config.serverUrl}/holds/${requestId}`);
+      if (res.status === 404) throw new Error(`clasp: no held payment ${requestId}`);
+      return ((await res.json()) as { hold: HoldView }).hold;
+    }
+
+    async function waitForApproval(requestId: string, options: WaitOptions = {}): Promise<OperationResult> {
+      const deadline = now() + (options.timeoutMs ?? 600_000);
+      const interval = options.intervalMs ?? 2_000;
+      for (;;) {
+        const hold = await getHold(requestId);
+        if (hold.status === "settled" && hold.result) return hold.result;
+        const failure = HOLD_OUTCOMES[hold.status];
+        if (failure) throw new ClaspErrorException(claspError(failure, { requestId }));
+        if (now() >= deadline) throw new Error(`clasp: still waiting for the owner to decide ${requestId}`);
+        await sleep(interval);
+      }
+    }
+
     async function revoke(): Promise<SessionSnapshot> {
+      const unsigned = { version: "1" as const, sessionId, by: "app" as const, timestamp: Math.floor(now() / 1000) };
       const res = await doFetch(`${config.serverUrl}/sessions/${sessionId}/revoke`, {
         method: "POST",
         headers: JSON_HEADERS,
-        body: "{}",
+        body: JSON.stringify({ ...unsigned, signature: signRevoke(unsigned, signingKeypair.privateKey) }),
       });
       const body = (await res.json()) as ClaspError | { session: SessionSnapshot };
       if (isClaspError(body)) throw new ClaspErrorException(body);
@@ -260,6 +312,8 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
         expiresAt: snapshot.expiresAt,
         canDelegate: (snapshot.permissions as string[]).includes("payments:auto"),
         active: snapshot.state === "ACTIVE",
+        ...(snapshot.approvalThreshold ? { approvalThreshold: snapshot.approvalThreshold } : {}),
+        ...(snapshot.rateLimit ? { rateLimit: snapshot.rateLimit } : {}),
       };
     }
 
@@ -285,6 +339,8 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
       appPubKey: signingKeypair.publicKey,
       request,
       requestPayment,
+      getHold,
+      waitForApproval,
       delegate,
       getCapabilities,
       verifyReceipt,
@@ -296,8 +352,9 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
   }
 
   async function connect(): Promise<ClaspSession> {
-    const body = {
+    const request: ApprovalRequest = {
       origin: config.origin,
+      app: config.app,
       permissions: config.permissions,
       asset: config.asset,
       maxSinglePayment: config.maxSinglePayment,
@@ -305,16 +362,19 @@ export function createClaspClient(config: ClaspClientConfig): ClaspClient {
       expiresAt: new Date(now() + sessionTtlMs).toISOString(),
       appPubKey: appKeypair.publicKey,
     };
+    const approval = await config.approve(request);
+    if (approval.appPubKey !== appKeypair.publicKey || approval.origin !== config.origin) {
+      throw new Error("clasp: the wallet approved a different app or origin");
+    }
     const res = await doFetch(`${config.serverUrl}/sessions`, {
       method: "POST",
       headers: JSON_HEADERS,
-      body: JSON.stringify(body),
+      body: JSON.stringify(approval),
     });
-    if (!res.ok) {
-      throw new Error(`clasp: session creation failed (${res.status})`);
-    }
-    const created = (await res.json()) as { sessionId: string; token: string; walletPubKey: string };
-    current = buildSession(created.sessionId, created.token, created.walletPubKey, appKeypair);
+    const body = (await res.json()) as ClaspError | { sessionId: string; token: string; walletPubKey: string };
+    if (isClaspError(body)) throw new ClaspErrorException(body);
+    if (!res.ok) throw new Error(`clasp: session creation failed (${res.status})`);
+    current = buildSession(body.sessionId, body.token, body.walletPubKey, appKeypair);
     return current;
   }
 

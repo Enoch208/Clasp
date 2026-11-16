@@ -1,20 +1,49 @@
 {
-  "name": "@clasp/client",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@useclasp/client",
+  "version": "0.1.0",
+  "description": "Owner-approved, rate-capped, revocable Fiber wallet sessions for apps and AI agents.",
+  "license": "MIT",
   "type": "module",
+  "homepage": "https://useclasp.xyz",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Enoch208/Clasp.git",
+    "directory": "packages/client"
+  },
+  "keywords": ["fiber", "ckb", "nervos", "wallet", "payments", "ai-agents", "permissions"],
   "exports": {
     ".": "./src/index.ts"
   },
+  "files": ["dist", "README.md"],
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "tsup"
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js",
+        "require": "./dist/index.cjs"
+      }
+    }
   },
   "dependencies": {
-    "@clasp/protocol": "workspace:*",
-    "@clasp/token": "workspace:*"
+    "@noble/ciphers": "^1.0.0",
+    "@noble/curves": "^1.6.0",
+    "@noble/ed25519": "^2.1.0",
+    "@noble/hashes": "^1.4.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@clasp/protocol": "workspace:*",
+    "@clasp/token": "workspace:*",
     "@types/node": "^24.0.0",
+    "tsup": "^8.3.0",
     "typescript": "^5.7.0"
   }
 }

@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@clasp/protocol", "@clasp/client", "@clasp/token", "@clasp/react"],
+  transpilePackages: ["@clasp/protocol", "@useclasp/client", "@clasp/token", "@useclasp/react"],
   async redirects() {
     return [
       {
