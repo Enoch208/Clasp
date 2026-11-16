@@ -4,30 +4,23 @@ import {
   amountString,
   claspError,
   delegationRequestSchema,
-  grantablePermission,
   isClaspError,
   operationRequestSchema,
+  paymentDecisionSchema,
+  revokeRequestSchema,
+  sessionApprovalSchema,
 } from "@clasp/protocol";
 import { sealTo, openSealed, type BoxKeypair } from "@clasp/token";
 import type { WalletCore } from "./wallet-core";
 
-const createSessionBodySchema = z.object({
-  origin: z.string().min(1),
-  permissions: z.array(grantablePermission),
-  asset: z.string().min(1),
-  maxSinglePayment: amountString,
-  maxSessionSpend: amountString,
-  expiresAt: z.string().min(1),
-  appPubKey: z.string().min(1),
-});
-
 export function createApp(
   walletCore: WalletCore,
-  opts: { mode?: "REAL" | "DEMO"; boxKeypair?: BoxKeypair } = {},
+  opts: { mode?: "REAL" | "DEMO"; boxKeypair?: BoxKeypair; owners?: "open" | "allow-list" } = {},
 ): Express {
   const app = express();
   const mode = opts.mode ?? "DEMO";
   const boxKeypair = opts.boxKeypair;
+  const owners = opts.owners ?? "open";
 
   app.use((req, res, next) => {
     const origin = req.get("origin");
@@ -44,7 +37,13 @@ export function createApp(
   app.use(express.json());
 
   app.get("/health", (_req, res) => {
-    res.status(200).json({ status: "ok", mode, sealing: Boolean(boxKeypair) });
+    res.status(200).json({
+      status: "ok",
+      mode,
+      sealing: Boolean(boxKeypair),
+      owners,
+      walletPubKey: walletCore.walletPublicKey,
+    });
   });
 
   app.get("/box-key", (_req, res) => {
@@ -82,12 +81,13 @@ export function createApp(
   });
 
   app.post("/sessions", (req, res) => {
-    const parsed = createSessionBodySchema.safeParse(req.body);
+    const parsed = sessionApprovalSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
       return;
     }
-    res.status(201).json(walletCore.createSession(parsed.data));
+    const result = walletCore.createSession(parsed.data);
+    res.status(isClaspError(result) ? 200 : 201).json(result);
   });
 
   app.post("/invoices", async (req, res) => {
@@ -122,12 +122,55 @@ export function createApp(
 
   app.post("/sessions/:id/revoke", (req, res) => {
     const sessionId = req.params.id ?? "";
-    const session = walletCore.revoke(sessionId);
-    if (!session) {
+    const parsed = revokeRequestSchema.safeParse(req.body);
+    if (!parsed.success || parsed.data.sessionId !== sessionId) {
+      res.status(400).json({ error: "invalid_request" });
+      return;
+    }
+    const result = walletCore.revoke(parsed.data);
+    if (!result) {
       res.status(404).json(claspError("session_not_found", { sessionId }));
       return;
     }
-    res.status(200).json({ session });
+    if (isClaspError(result)) {
+      res.status(200).json(result);
+      return;
+    }
+    res.status(200).json({ session: result });
+  });
+
+  app.get("/sessions/:id/holds", (req, res) => {
+    const sessionId = req.params.id ?? "";
+    const holds = walletCore.listHolds(sessionId);
+    if (!holds) {
+      res.status(404).json(claspError("session_not_found", { sessionId }));
+      return;
+    }
+    res.status(200).json({ holds });
+  });
+
+  app.get("/holds/:requestId", (req, res) => {
+    const hold = walletCore.getHold(req.params.requestId ?? "");
+    if (!hold) {
+      res.status(404).json({ error: "hold_not_found" });
+      return;
+    }
+    res.status(200).json({ hold });
+  });
+
+  app.post("/holds/:requestId/decision", async (req, res) => {
+    const requestId = req.params.requestId ?? "";
+    const parsed = paymentDecisionSchema.safeParse(req.body);
+    if (!parsed.success || parsed.data.requestId !== requestId) {
+      res.status(400).json({ error: "invalid_request" });
+      return;
+    }
+    const result = await walletCore.decide(parsed.data);
+    if (!result) {
+      res.status(404).json({ error: "hold_not_found" });
+      return;
+    }
+    res.status(200).json(isClaspError(result) ? result : { hold: result });
   });
 
   app.get("/sessions/:id", (req, res) => {

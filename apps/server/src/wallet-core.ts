@@ -2,8 +2,13 @@ import type {
   ClaspError,
   DelegationRequest,
   GrantablePermission,
+  HoldView,
   OperationRequest,
   OperationResult,
+  PaymentDecision,
+  RateLimit,
+  RevokeRequest,
+  SessionApproval,
   SessionState,
   SessionStatement,
 } from "@clasp/protocol";
@@ -20,16 +25,9 @@ export interface SessionView {
   expiresAt: string;
   state: SessionState;
   createdAt: string;
-}
-
-export interface CreateSessionInput {
-  origin: string;
-  permissions: GrantablePermission[];
-  asset: string;
-  maxSinglePayment: string;
-  maxSessionSpend: string;
-  expiresAt: string;
-  appPubKey: string;
+  ownerPubKey?: string;
+  approvalThreshold?: string;
+  rateLimit?: RateLimit;
 }
 
 export interface CreateSessionResult {
@@ -57,11 +55,15 @@ export interface DelegateResultView {
 }
 
 export interface WalletCore {
-  createSession(input: CreateSessionInput): CreateSessionResult;
+  walletPublicKey: string;
+  createSession(approval: SessionApproval): CreateSessionResult | ClaspError;
   createInvoice(input: { amount: string; asset: string }): Promise<InvoiceResult>;
   getSession(sessionId: string): SessionView | null;
   getStatement(sessionId: string): SessionStatement | null;
-  revoke(sessionId: string): SessionView | null;
+  revoke(request: RevokeRequest): SessionView | ClaspError | null;
+  listHolds(sessionId: string): HoldView[] | null;
+  getHold(requestId: string): HoldView | null;
+  decide(decision: PaymentDecision): Promise<HoldView | ClaspError | null>;
   delegate(request: DelegationRequest, meta: EvaluateMeta): DelegateResultView | ClaspError;
   evaluate(request: OperationRequest, meta: EvaluateMeta): Promise<OperationResult | ClaspError>;
 }

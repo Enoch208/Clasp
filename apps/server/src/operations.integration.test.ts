@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { ClaspErrorException } from "@clasp/protocol";
-import { createClaspClient } from "@clasp/client";
+import { createClaspClient, createClaspWallet, type ClaspWallet } from "@useclasp/client";
 import { Store } from "@clasp/wallet-core";
 import { FakeGateway, encodeFakeInvoice } from "@clasp/gateway";
 import { generateKeypair } from "@clasp/token";
@@ -19,6 +19,7 @@ describe("client SDK drives POST /operations end-to-end", () => {
   let base: string;
   let now: number;
   let walletKeys: ReturnType<typeof generateKeypair>;
+  let wallet: ClaspWallet;
 
   beforeEach(async () => {
     now = START;
@@ -29,6 +30,7 @@ describe("client SDK drives POST /operations end-to-end", () => {
     server = createApp(walletCore).listen(0);
     await new Promise<void>((resolve) => server.once("listening", resolve));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    wallet = createClaspWallet({ serverUrl: base, now: () => now });
   });
 
   afterEach(async () => {
@@ -44,6 +46,7 @@ describe("client SDK drives POST /operations end-to-end", () => {
       asset: ASSET,
       maxSinglePayment: "100000000",
       maxSessionSpend: "250000000",
+      approve: (request) => wallet.approve(request),
       now: () => now,
     });
   }
@@ -90,7 +93,7 @@ describe("client SDK drives POST /operations end-to-end", () => {
     const revokedEvents: string[] = [];
     client.on("revoked", (sessionId) => revokedEvents.push(sessionId));
 
-    await fetch(`${base}/sessions/${session.sessionId}/revoke`, { method: "POST" });
+    await wallet.revoke(session.sessionId);
 
     let thrown: unknown;
     try {
@@ -138,6 +141,7 @@ describe("client SDK drives POST /operations end-to-end", () => {
       asset: ASSET,
       maxSinglePayment: "100000000",
       maxSessionSpend: "250000000",
+      approve: (request) => wallet.approve(request),
       now: () => now,
     });
     const session = await client.connect();

@@ -10,6 +10,7 @@ import {
 } from "@clasp/token";
 import { createApp } from "./app";
 import { createWalletCore } from "./clasp-wallet-core";
+import { parseOwnerKeys } from "./owners";
 
 function loadWalletKeys(): { keys: Keypair; ephemeral: boolean } {
   const provided = process.env.CLASP_WALLET_PRIVATE_KEY;
@@ -41,8 +42,13 @@ const gateway: Gateway = real
   ? new FnnGateway({ url: fnnUrl!, invoiceUrl: fnnInvoiceUrl })
   : new FakeGateway();
 
-const walletCore = createWalletCore({ store, gateway, walletKeys: keys, now });
-const app = createApp(walletCore, { mode: real ? "REAL" : "DEMO", boxKeypair: boxKeys.keys });
+const owners = parseOwnerKeys(process.env.CLASP_OWNER_PUBKEYS);
+const walletCore = createWalletCore({ store, gateway, walletKeys: keys, now, owners });
+const app = createApp(walletCore, {
+  mode: real ? "REAL" : "DEMO",
+  boxKeypair: boxKeys.keys,
+  owners: owners ? "allow-list" : "open",
+});
 
 const port = Number(process.env.PORT ?? 8787);
 
@@ -55,6 +61,11 @@ app.listen(port, () => {
   );
   console.log(`wallet pubkey: ${keys.publicKey}`);
   console.log(`box pubkey (sealed relay): ${boxKeys.keys.publicKey}${boxKeys.ephemeral ? " (ephemeral)" : ""}`);
+  console.log(
+    owners
+      ? `owners: ${owners.length} listed key(s) may approve sessions and held payments`
+      : "owners: OPEN — any owner key may approve a session (set CLASP_OWNER_PUBKEYS to restrict)",
+  );
   if (ephemeral) {
     console.log("warning: CLASP_WALLET_PRIVATE_KEY not set — using an ephemeral dev key (sessions do not survive restart)");
   }

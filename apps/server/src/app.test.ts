@@ -1,11 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import type { DelegationRequest, OperationRequest } from "@clasp/protocol";
+import type { DelegationRequest, OperationRequest, SessionApproval } from "@clasp/protocol";
 import { createApp } from "./app";
 import { Store } from "@clasp/wallet-core";
 import { FakeGateway, encodeFakeInvoice } from "@clasp/gateway";
-import { generateKeypair, signRequest, signDelegation, verifyResult, verifyStatement } from "@clasp/token";
+import {
+  generateKeypair,
+  signApproval,
+  signRequest,
+  signDelegation,
+  signRevoke,
+  verifyResult,
+  verifyStatement,
+} from "@clasp/token";
 import { createWalletCore } from "./clasp-wallet-core";
 
 const ORIGIN = "https://weather.example";
@@ -13,8 +21,14 @@ const ASSET = "CKB";
 const START = Date.parse("2026-07-15T20:00:00Z");
 const fakeInvoice = (asset: string, amount: string) => encodeFakeInvoice(amount, asset);
 
-function facts(appPubKey: string) {
-  return {
+const owner = generateKeypair();
+let approvals = 0;
+let walletPubKey = "";
+
+function facts(appPubKey: string, overrides: Partial<SessionApproval> = {}): SessionApproval {
+  const unsigned: Omit<SessionApproval, "signature"> = {
+    version: "1",
+    approvalId: `apr_${(approvals += 1)}`,
     origin: ORIGIN,
     permissions: ["payments:request", "invoices:read"],
     asset: ASSET,
@@ -22,7 +36,17 @@ function facts(appPubKey: string) {
     maxSessionSpend: "250000000",
     expiresAt: new Date(START + 3600_000).toISOString(),
     appPubKey,
+    ownerPubKey: owner.publicKey,
+    walletPubKey,
+    timestamp: Math.floor(START / 1000),
+    ...overrides,
   };
+  return { ...unsigned, signature: signApproval(unsigned, owner.privateKey) };
+}
+
+function revokeBody(sessionId: string, by: "app" | "owner", privateKey: string) {
+  const unsigned = { version: "1" as const, sessionId, by, timestamp: Math.floor(START / 1000) };
+  return { ...unsigned, signature: signRevoke(unsigned, privateKey) };
 }
 
 describe("clasp server", () => {
@@ -35,6 +59,7 @@ describe("clasp server", () => {
   beforeEach(async () => {
     now = START;
     walletKeys = generateKeypair();
+    walletPubKey = walletKeys.publicKey;
     appKeys = generateKeypair();
     const gateway = new FakeGateway();
     const store = new Store();
@@ -168,7 +193,7 @@ describe("clasp server", () => {
 
   it("revokes a session and rejects further operations", async () => {
     const { sessionId } = await createSession();
-    const revoke = await post(`/sessions/${sessionId}/revoke`, {});
+    const revoke = await post(`/sessions/${sessionId}/revoke`, revokeBody(sessionId, "owner", owner.privateKey));
     expect(revoke.status).toBe(200);
     expect(revoke.body.session.state).toBe("REVOKED");
 
@@ -229,7 +254,7 @@ describe("clasp server", () => {
   });
 
   function autoFacts(appPubKey: string) {
-    return { ...facts(appPubKey), permissions: ["payments:auto", "payments:request"] };
+    return facts(appPubKey, { permissions: ["payments:auto", "payments:request"] });
   }
 
   function signedDelegation(

@@ -1,35 +1,30 @@
-import { isClaspError, subAmounts, type ClaspError, type SessionFacts, type SessionStatement } from "@clasp/protocol";
-import { Store, evaluate, delegate, type StoredSession } from "@clasp/wallet-core";
+import { isClaspError, subAmounts, type ClaspError, type SessionStatement } from "@clasp/protocol";
+import {
+  Store,
+  evaluate,
+  delegate,
+  createApprovedSession,
+  decideHold,
+  expireHoldIfDue,
+  holdView,
+  listSessionHolds,
+  revokeSession,
+  sessionToFacts,
+  type StoredSession,
+} from "@clasp/wallet-core";
 import { signSession, signStatement, type Keypair } from "@clasp/token";
 import type { Gateway } from "@clasp/gateway";
-import type {
-  WalletCore,
-  CreateSessionInput,
-  CreateSessionResult,
-  DelegateResultView,
-  EvaluateMeta,
-  SessionView,
-} from "./wallet-core";
+import type { WalletCore, CreateSessionResult, DelegateResultView, EvaluateMeta, SessionView } from "./wallet-core";
 
 interface Deps {
   store: Store;
   gateway: Gateway;
   walletKeys: Keypair;
   now: () => number;
+  owners?: readonly string[] | null;
 }
 
-function toFacts(session: StoredSession): SessionFacts {
-  return {
-    sessionId: session.id,
-    origin: session.origin,
-    permissions: session.permissions,
-    asset: session.asset,
-    maxSinglePayment: session.maxSinglePayment,
-    maxSessionSpend: session.maxSessionSpend,
-    expiresAt: session.expiresAt,
-    appPubKey: session.appPubKey,
-  };
-}
+const toFacts = sessionToFacts;
 
 function toView(session: StoredSession): SessionView {
   return {
@@ -44,10 +39,13 @@ function toView(session: StoredSession): SessionView {
     expiresAt: session.expiresAt,
     state: session.state,
     createdAt: new Date(session.createdAt).toISOString(),
+    ...(session.ownerPubKey ? { ownerPubKey: session.ownerPubKey } : {}),
+    ...(session.approvalThreshold ? { approvalThreshold: session.approvalThreshold } : {}),
+    ...(session.rateLimit ? { rateLimit: session.rateLimit } : {}),
   };
 }
 
-export function createWalletCore({ store, gateway, walletKeys, now }: Deps): WalletCore {
+export function createWalletCore({ store, gateway, walletKeys, now, owners = null }: Deps): WalletCore {
   let counter = 0;
   const nextSessionId = () => {
     counter += 1;
@@ -55,23 +53,23 @@ export function createWalletCore({ store, gateway, walletKeys, now }: Deps): Wal
   };
 
   return {
-    createSession(input: CreateSessionInput): CreateSessionResult {
-      const sessionId = nextSessionId();
-      const stored = store.createSession(
-        {
-          sessionId,
-          origin: input.origin,
-          permissions: input.permissions,
-          asset: input.asset,
-          maxSinglePayment: input.maxSinglePayment,
-          maxSessionSpend: input.maxSessionSpend,
-          expiresAt: input.expiresAt,
-          appPubKey: input.appPubKey,
-        },
-        now(),
-      );
-      const token = signSession(toFacts(stored), walletKeys.privateKey);
-      return { sessionId, session: toView(stored), token, walletPubKey: walletKeys.publicKey };
+    walletPublicKey: walletKeys.publicKey,
+
+    createSession(approval): CreateSessionResult | ClaspError {
+      const created = createApprovedSession(approval, {
+        store,
+        walletKeys,
+        now: now(),
+        newSessionId: nextSessionId,
+        owners,
+      });
+      if (isClaspError(created)) return created;
+      return {
+        sessionId: created.sessionId,
+        session: toView(created.session),
+        token: created.token,
+        walletPubKey: walletKeys.publicKey,
+      };
     },
 
     async createInvoice(input: { amount: string; asset: string }) {
@@ -80,11 +78,13 @@ export function createWalletCore({ store, gateway, walletKeys, now }: Deps): Wal
     },
 
     getSession(sessionId: string): SessionView | null {
+      store.expireDueHolds(sessionId, now());
       const session = store.getSession(sessionId);
       return session ? toView(session) : null;
     },
 
     getStatement(sessionId: string): SessionStatement | null {
+      store.expireDueHolds(sessionId, now());
       const session = store.getSession(sessionId);
       if (!session) return null;
       return signStatement(
@@ -105,11 +105,23 @@ export function createWalletCore({ store, gateway, walletKeys, now }: Deps): Wal
       );
     },
 
-    revoke(sessionId: string): SessionView | null {
-      const session = store.getSession(sessionId);
-      if (!session) return null;
-      if (session.state !== "ACTIVE") return toView(session);
-      return toView(store.revoke(sessionId, now()));
+    revoke(request): SessionView | ClaspError | null {
+      const result = revokeSession(request, store, now());
+      if (result === null || isClaspError(result)) return result;
+      return toView(result);
+    },
+
+    listHolds(sessionId) {
+      return listSessionHolds(store, sessionId, now());
+    },
+
+    getHold(requestId) {
+      const hold = expireHoldIfDue(store, requestId, now());
+      return hold ? holdView(hold) : null;
+    },
+
+    decide(decision) {
+      return decideHold(decision, { store, gateway, walletKeys, now: now(), owners });
     },
 
     delegate(request, meta: EvaluateMeta): DelegateResultView | ClaspError {

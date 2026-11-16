@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { ClaspErrorException } from "@clasp/protocol";
-import { createClaspClient } from "@clasp/client";
+import { createClaspClient, createClaspWallet } from "@useclasp/client";
 import { createRelay, type RelayOptions } from "@clasp/relay";
 import { Store } from "@clasp/wallet-core";
 import { FakeGateway, encodeFakeInvoice } from "@clasp/gateway";
@@ -55,6 +55,7 @@ describe("standalone relay — transport only, trustless by signature", () => {
       asset: ASSET,
       maxSinglePayment: "100000000",
       maxSessionSpend: "250000000",
+      approve: (request) => createClaspWallet({ serverUrl, now: () => now }).approve(request),
       sealed,
       now: () => now,
     });
