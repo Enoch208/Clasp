@@ -7,6 +7,9 @@ import {
   type OperationResult,
   type DelegationRequest,
   type SessionStatement,
+  type SessionApproval,
+  type PaymentDecision,
+  type RevokeRequest,
 } from "@clasp/protocol";
 import { canonicalize } from "./canonicalize";
 import { publicKeyFromPrivate, randomPrivateKey, signBytes, verifyBytes } from "./ed25519";
@@ -94,4 +97,33 @@ export function signResult(result: Omit<OperationResult, "signature">, walletPri
 export function verifyResult(result: OperationResult, walletPublicKey: string): boolean {
   const { signature, ...rest } = result;
   return verifyBytes(canonicalize(rest), signature, walletPublicKey);
+}
+
+function withoutSignature<T extends { signature: string }>(message: Omit<T, "signature"> | T): string {
+  const { signature: _omit, ...rest } = message as T;
+  return canonicalize(rest);
+}
+
+export function signApproval(approval: Omit<SessionApproval, "signature">, ownerPrivateKey: string): string {
+  return signBytes(withoutSignature<SessionApproval>(approval), ownerPrivateKey);
+}
+
+export function verifyApproval(approval: SessionApproval): boolean {
+  return verifyBytes(withoutSignature<SessionApproval>(approval), approval.signature, approval.ownerPubKey);
+}
+
+export function signDecision(decision: Omit<PaymentDecision, "signature">, ownerPrivateKey: string): string {
+  return signBytes(withoutSignature<PaymentDecision>(decision), ownerPrivateKey);
+}
+
+export function verifyDecision(decision: PaymentDecision, ownerPublicKey: string): boolean {
+  return verifyBytes(withoutSignature<PaymentDecision>(decision), decision.signature, ownerPublicKey);
+}
+
+export function signRevoke(request: Omit<RevokeRequest, "signature">, privateKey: string): string {
+  return signBytes(withoutSignature<RevokeRequest>(request), privateKey);
+}
+
+export function verifyRevoke(request: RevokeRequest, publicKey: string): boolean {
+  return verifyBytes(withoutSignature<RevokeRequest>(request), request.signature, publicKey);
 }

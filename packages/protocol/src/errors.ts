@@ -14,6 +14,10 @@ export const ERROR_CODES = [
   "session_spending_limit_exceeded",
   "gateway_failure",
   "attenuation_violation",
+  "rate_limit_exceeded",
+  "approval_required",
+  "approval_denied",
+  "approval_expired",
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -42,6 +46,10 @@ const DEFAULTS: Record<ErrorCode, { message: string; retryable: boolean; nextAct
   session_spending_limit_exceeded: { message: "Amount exceeds the remaining session allowance.", retryable: false, nextAction: "reduce_amount" },
   gateway_failure: { message: "The payment could not be settled by the network.", retryable: true, nextAction: "retry" },
   attenuation_violation: { message: "A delegated token cannot widen its parent's authority.", retryable: false, nextAction: "abort" },
+  rate_limit_exceeded: { message: "Too many payments in this session's rate window.", retryable: true, nextAction: "retry_later" },
+  approval_required: { message: "This payment is above the session's approval threshold and is waiting for the wallet owner.", retryable: false, nextAction: "await_approval" },
+  approval_denied: { message: "The wallet owner declined this payment.", retryable: false, nextAction: "abort" },
+  approval_expired: { message: "The wallet owner did not approve this payment in time.", retryable: false, nextAction: "abort" },
 };
 
 export function claspError(code: ErrorCode, fields: Record<string, unknown> = {}): ClaspError {

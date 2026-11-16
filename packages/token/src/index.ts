@@ -12,6 +12,12 @@ export {
   verifyStatement,
   signResult,
   verifyResult,
+  signApproval,
+  verifyApproval,
+  signDecision,
+  verifyDecision,
+  signRevoke,
+  verifyRevoke,
   type Keypair,
 } from "./sign";
 export { generateBoxKeypair, boxPublicFromPrivate, sealTo, openSealed, type BoxKeypair } from "./seal";
