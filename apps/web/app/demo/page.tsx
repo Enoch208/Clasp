@@ -7,8 +7,12 @@ import { AppShell, SurfaceHead } from "@/components/AppShell";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
-import { CheckCircle2, CloudSun, Link2, Lock, ShieldCheck, ShieldOff } from "@/components/icons";
+import { CheckCircle2, Link2, Lock, ShieldOff } from "@/components/icons";
+import { HeldPayments } from "@/components/HeldPayments";
+import { UnlockedReport } from "@/components/UnlockedReport";
+import { RuleRows } from "@/components/RuleRows";
 import { useClasp, pay, activeSession, type PayOutcome } from "@/lib/claspClient";
+import { useNow } from "@/lib/useNow";
 import { formatCkb, translatePermission, shortId } from "@/lib/format";
 import { weatherAgentPairing, weatherReport } from "@/lib/fixtures";
 
@@ -17,6 +21,7 @@ const REPORT_PRICE = "100000000";
 export default function DemoDappPage() {
   const store = useClasp();
   const session = activeSession(store);
+  const now = useNow();
   const [outcome, setOutcome] = useState<PayOutcome | null>(null);
   const [paying, setPaying] = useState(false);
 
@@ -27,6 +32,10 @@ export default function DemoDappPage() {
   };
 
   const unlocked = outcome?.ok === true;
+  const held =
+    outcome?.ok === false &&
+    outcome.error.code === "approval_required" &&
+    store.holds.some((hold) => hold.requestId === outcome.error.requestId && hold.status === "pending");
 
   return (
     <AppShell>
@@ -68,99 +77,68 @@ export default function DemoDappPage() {
           </Card>
         </div>
       ) : (
-        <div className="grid-2">
-          <Card title="Connected" right={<Tag tone="ok">Session active</Tag>}>
-            <p className="sess-origin mono">
-              {session.origin} · {shortId(session.sessionId)}
-            </p>
-            <p className="demo-reqs-label">Granted capabilities</p>
-            <ul className="cap-list">
-              {session.permissions.map((permission) => (
-                <li key={permission}>
-                  <CheckCircle2 size={16} strokeWidth={2.5} className="cap-tick" />
-                  <span>{translatePermission(permission as GrantablePermission).title}</span>
-                </li>
-              ))}
-            </ul>
-            <dl className="kv-list" style={{ marginTop: 8 }}>
-              <div className="kv">
-                <dt>Per-payment cap</dt>
-                <dd>{formatCkb(session.maxSinglePayment)}</dd>
-              </div>
-              <div className="kv">
-                <dt>Session remaining</dt>
-                <dd>{formatCkb(session.maxSessionSpend)} − spent {formatCkb(session.spent)}</dd>
-              </div>
-            </dl>
-            <Link href="/lab" className="demo-link">
-              <ShieldOff size={14} strokeWidth={2.5} /> Now try to break it in the security lab
-            </Link>
-          </Card>
+        <div className="stack-cards">
+          <div className="grid-2">
+            <Card title="Connected" right={<Tag tone="ok">Session active</Tag>}>
+              <p className="sess-origin mono">
+                {session.origin} · {shortId(session.sessionId)}
+              </p>
+              <p className="demo-reqs-label">Granted capabilities</p>
+              <ul className="cap-list">
+                {session.permissions.map((permission) => (
+                  <li key={permission}>
+                    <CheckCircle2 size={16} strokeWidth={2.5} className="cap-tick" />
+                    <span>{translatePermission(permission as GrantablePermission).title}</span>
+                  </li>
+                ))}
+              </ul>
+              <dl className="kv-list" style={{ marginTop: 8 }}>
+                <div className="kv">
+                  <dt>Per-payment cap</dt>
+                  <dd>{formatCkb(session.maxSinglePayment)}</dd>
+                </div>
+                <div className="kv">
+                  <dt>Session remaining</dt>
+                  <dd>{formatCkb(session.maxSessionSpend)} − spent {formatCkb(session.spent)}</dd>
+                </div>
+                <RuleRows session={session} />
+              </dl>
+              <Link href="/lab" className="demo-link">
+                <ShieldOff size={14} strokeWidth={2.5} /> Now try to break it in the security lab
+              </Link>
+            </Card>
 
-          <Card
-            title="Premium weather-risk report"
-            right={unlocked ? <Tag tone="ok">Unlocked</Tag> : <Tag tone="warn">Locked</Tag>}
-          >
-            {unlocked && outcome.ok ? (
-              <div>
-                <div className="pay-result">
-                  <p className="pay-result-head">
-                    <CheckCircle2 size={16} strokeWidth={2.5} /> Payment succeeded
-                  </p>
-                  <dl className="kv-list">
-                    <div className="kv">
-                      <dt>Amount</dt>
-                      <dd>{formatCkb(outcome.amount)}</dd>
-                    </div>
-                    <div className="kv">
-                      <dt>Payment hash</dt>
-                      <dd className="mono hash">{shortId(outcome.paymentHash, 10, 6)}</dd>
-                    </div>
-                    <div className="kv">
-                      <dt>Session remaining</dt>
-                      <dd>{formatCkb(outcome.remaining)}</dd>
-                    </div>
-                  </dl>
-                  {outcome.receiptVerified ? (
-                    <p className="receipt-verified">
-                      <ShieldCheck size={14} strokeWidth={2.5} /> Wallet-signed receipt verified
-                      <code className="mono">{shortId(outcome.signature, 8, 6)}</code>
+            <Card
+              title="Premium weather-risk report"
+              right={unlocked ? <Tag tone="ok">Unlocked</Tag> : <Tag tone="warn">Locked</Tag>}
+            >
+              {unlocked && outcome.ok ? (
+                <UnlockedReport outcome={outcome} />
+              ) : (
+                <div>
+                  <div className="report-locked">
+                    <Lock size={26} strokeWidth={2} />
+                    <p>{weatherReport.title}</p>
+                  </div>
+                  {held ? (
+                    <p className="pay-held">
+                      Your wallet held this payment because it is over the amount you asked to approve. Approve or decline it
+                    below.
+                    </p>
+                  ) : outcome && !outcome.ok ? (
+                    <p className="pay-error mono">
+                      {outcome.error.code} — {outcome.error.message}
                     </p>
                   ) : null}
+                  <Button variant="accent" block onClick={onPay} disabled={paying || held}>
+                    {paying ? "Settling…" : `Request payment · ${formatCkb(REPORT_PRICE)}`}
+                  </Button>
+                  <p className="pay-note">Each payment is checked against the session limits and still shown to you.</p>
                 </div>
-                <div className="report">
-                  <p className="report-head">
-                    <CloudSun size={18} strokeWidth={2.25} /> {weatherReport.location} · {weatherReport.window}
-                  </p>
-                  <p className="report-headline">{weatherReport.headline}</p>
-                  <dl className="kv-list">
-                    {weatherReport.rows.map(([k, v]) => (
-                      <div className="kv" key={k}>
-                        <dt>{k}</dt>
-                        <dd>{v}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div className="report-locked">
-                  <Lock size={26} strokeWidth={2} />
-                  <p>{weatherReport.title}</p>
-                </div>
-                {outcome && !outcome.ok ? (
-                  <p className="pay-error mono">
-                    {outcome.error.code} — {outcome.error.message}
-                  </p>
-                ) : null}
-                <Button variant="accent" block onClick={onPay} disabled={paying}>
-                  {paying ? "Settling…" : `Request payment · ${formatCkb(REPORT_PRICE)}`}
-                </Button>
-                <p className="pay-note">Each payment is checked against the session limits and still shown to you.</p>
-              </div>
-            )}
-          </Card>
+              )}
+            </Card>
+          </div>
+          <HeldPayments holds={store.holds} now={now} onDecided={setOutcome} />
         </div>
       )}
     </AppShell>

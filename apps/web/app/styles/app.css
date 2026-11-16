@@ -557,9 +557,15 @@
   background: var(--of-paper);
   color: var(--of-muted);
 }
+.ev-warn {
+  background: var(--of-yellow);
+}
 .ev-code {
   color: var(--danger);
   font-weight: 700;
+}
+.ev-code-warn {
+  color: var(--of-ink);
 }
 .tl-detail {
   margin-top: 3px;
@@ -735,4 +741,67 @@
   margin: 12px 0 0;
   color: var(--of-muted);
   font-size: 0.82rem;
+}
+
+/* ---- held payments ---- */
+.hold-list {
+  display: flex;
+  flex-direction: column;
+}
+.hold-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px dashed rgba(15, 15, 20, 0.16);
+}
+.hold-row:first-child {
+  padding-top: 0;
+}
+.hold-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.hold-amount {
+  margin: 0;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+.hold-desc {
+  margin: 4px 0 0;
+  color: var(--of-muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+  max-width: 40ch;
+}
+.hold-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.pay-held {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 2px solid var(--of-ink);
+  background: rgba(255, 204, 51, 0.25);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+@media (max-width: 560px) {
+  .limit-field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .limit-field .stepper {
+    align-self: flex-start;
+  }
+  .hold-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .hold-actions > * {
+    flex: 1;
+  }
 }

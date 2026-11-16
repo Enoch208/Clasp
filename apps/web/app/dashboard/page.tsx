@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell, SurfaceHead } from "@/components/AppShell";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
 import { Meter } from "@/components/ui/Meter";
 import { EventList } from "@/components/EventList";
+import { HeldPayments } from "@/components/HeldPayments";
+import { RuleRows } from "@/components/RuleRows";
 import { Download, Power } from "@/components/icons";
-import { useClasp, revoke, exportStatement } from "@/lib/claspClient";
+import { useClasp, revoke, exportStatement, refreshHolds } from "@/lib/claspClient";
 import { useNow } from "@/lib/useNow";
 import { formatCkb, formatDuration, shortId } from "@/lib/format";
 
@@ -26,6 +28,10 @@ export default function DashboardPage() {
   const session = store.session;
   const [exporting, setExporting] = useState(false);
   const [exported, setExported] = useState(false);
+
+  useEffect(() => {
+    void refreshHolds();
+  }, []);
 
   const onExport = async () => {
     setExporting(true);
@@ -86,6 +92,7 @@ export default function DashboardPage() {
                   <dt>Expires</dt>
                   <dd>{now ? expiresIn(session.expiresAt, now) : "—"}</dd>
                 </div>
+                <RuleRows session={session} />
               </dl>
               <div className="spend-row">
                 <div className="spend-head">
@@ -104,6 +111,7 @@ export default function DashboardPage() {
                 <Power size={16} strokeWidth={2.5} /> Revoke session
               </Button>
             </Card>
+            {state === "ACTIVE" ? <HeldPayments holds={store.holds} now={now} /> : null}
           </div>
 
           <Card title="Activity">

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Tag } from "@/components/ui/Tag";
 import { Stepper } from "@/components/ui/Stepper";
+import { RulesFields, RATE_WINDOW_SECONDS, effectiveThreshold } from "@/components/RulesFields";
 import { Check, X, ShieldCheck } from "@/components/icons";
 import { weatherAgentPairing, PAIRING_CODE, DEFAULT_DURATION_MINS } from "@/lib/fixtures";
 import { formatCkb, formatDuration, translatePermission, CANNOT_LIST } from "@/lib/format";
@@ -18,6 +19,8 @@ const SINGLE_STEP = "25000000";
 const SINGLE_MIN = "25000000";
 const SESSION_STEP = "50000000";
 const SESSION_MIN = "50000000";
+const DEFAULT_THRESHOLD = "50000000";
+const DEFAULT_RATE = "5";
 
 export default function WalletApprovalPage() {
   const router = useRouter();
@@ -28,6 +31,8 @@ export default function WalletApprovalPage() {
   const [maxSingle, setMaxSingle] = useState(request.requestedLimits.maxSinglePayment);
   const [maxSession, setMaxSession] = useState(request.requestedLimits.maxSessionSpend);
   const [durationMins, setDurationMins] = useState(DEFAULT_DURATION_MINS);
+  const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
+  const [rate, setRate] = useState(DEFAULT_RATE);
 
   const reduced =
     maxSession !== request.requestedLimits.maxSessionSpend ||
@@ -36,7 +41,15 @@ export default function WalletApprovalPage() {
 
   const approve = async () => {
     try {
-      await connect({ permissions: granted, maxSinglePayment: maxSingle, maxSessionSpend: maxSession, durationMins });
+      const askOver = effectiveThreshold(threshold, maxSingle);
+      await connect({
+        permissions: granted,
+        maxSinglePayment: maxSingle,
+        maxSessionSpend: maxSession,
+        durationMins,
+        approvalThreshold: BigInt(askOver) < BigInt(maxSingle) ? askOver : undefined,
+        rateLimit: { maxPayments: Number(rate), windowSeconds: RATE_WINDOW_SECONDS },
+      });
       router.push("/demo");
     } catch {
       /* server-offline banner already communicates the failure */
@@ -129,8 +142,17 @@ export default function WalletApprovalPage() {
             />
           </div>
 
+          <RulesFields
+            threshold={threshold}
+            maxSingle={maxSingle}
+            rate={rate}
+            onThreshold={setThreshold}
+            onRate={setRate}
+          />
+
           <p className="limit-note">
-            <ShieldCheck size={15} strokeWidth={2.4} /> The wallet signs your reduced values — never the app&apos;s request.
+            <ShieldCheck size={15} strokeWidth={2.4} /> You sign your reduced values and rules with your owner key — never
+            the app&apos;s request.
           </p>
 
           <div className="limit-actions">

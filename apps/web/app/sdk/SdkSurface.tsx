@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { GrantablePermission } from "@clasp/protocol";
-import { ConnectFiberWalletButton, useClaspSession } from "@clasp/react";
+import { ConnectFiberWalletButton, useClaspSession } from "@useclasp/react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
@@ -15,7 +15,7 @@ const SNIPPET = `import {
   ClaspProvider,
   ConnectFiberWalletButton,
   useClaspSession,
-} from "@clasp/react";
+} from "@useclasp/react";
 
 <ClaspProvider config={{
   serverUrl, origin, app: { name: "Acme Checkout" },

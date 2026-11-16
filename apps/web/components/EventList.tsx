@@ -1,11 +1,12 @@
 import { type ComponentType } from "react";
 import type { EventKind, EventRow } from "@/lib/claspClient";
 import { relativeTime } from "@/lib/format";
-import { Check, Coins, ShieldOff, Power } from "@/components/icons";
+import { Check, Clock, Coins, ShieldOff, Power } from "@/components/icons";
 
 const META: Record<EventKind, { icon: ComponentType<{ size?: number; strokeWidth?: number }>; tone: string }> = {
   approved: { icon: Check, tone: "ok" },
   settled: { icon: Coins, tone: "ok" },
+  held: { icon: Clock, tone: "warn" },
   blocked: { icon: ShieldOff, tone: "bad" },
   revoked: { icon: Power, tone: "muted" },
 };
@@ -27,7 +28,7 @@ export function EventList({ events, now, empty }: { events: EventRow[]; now: num
             </span>
             <div>
               <span className="tl-label">{event.label}</span>
-              {event.code ? <span className="tl-code ev-code"> {event.code}</span> : null}
+              {event.code ? <span className={`tl-code ev-code ev-code-${meta.tone}`}> {event.code}</span> : null}
               {event.kind === "settled" && event.detail ? <div className="tl-detail mono">{event.detail}</div> : null}
             </div>
           </div>

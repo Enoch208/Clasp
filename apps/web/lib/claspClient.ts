@@ -1,17 +1,32 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { createClaspClient, type ClaspClient, type ClaspSession, type SessionSnapshot } from "@clasp/client";
-import { generateKeypair, signRequest, type Keypair } from "@clasp/token";
-import { addAmounts, isClaspError, type ClaspError, type GrantablePermission, type OperationRequest, type OperationResult } from "@clasp/protocol";
+import { createClaspClient, type ClaspClient, type ClaspSession, type SessionSnapshot } from "@useclasp/client";
+import { generateKeypair, signDecision, signRequest, type Keypair } from "@clasp/token";
+import {
+  addAmounts,
+  claspError,
+  gtAmounts,
+  isClaspError,
+  type ClaspError,
+  type GrantablePermission,
+  type HoldView,
+  type OperationRequest,
+  type OperationResult,
+  type PaymentDecisionKind,
+  type RateLimit,
+} from "@clasp/protocol";
 import { formatCkb } from "./format";
+import { ownerWallet } from "./ownerWallet";
+import { SERVER_URL } from "./serverUrl";
+import { weatherAgentPairing } from "./fixtures";
 
-const SERVER_URL = process.env.NEXT_PUBLIC_CLASP_SERVER_URL ?? "http://localhost:8787";
 const APP_ORIGIN = "https://weather.example";
 const APP_NAME = "Weather Agent";
+const BURST_AMOUNT = "1000000";
 
-export type EventKind = "approved" | "settled" | "blocked" | "revoked";
-export type AttackKind = "channels" | "overlimit" | "replay" | "origin";
+export type EventKind = "approved" | "settled" | "held" | "blocked" | "revoked";
+export type AttackKind = "channels" | "overlimit" | "replay" | "origin" | "burst" | "selfapprove";
 
 export interface EventRow {
   id: string;
@@ -33,6 +48,7 @@ interface State {
   events: EventRow[];
   paymentCount: number;
   lastError: ClaspError | null;
+  holds: HoldView[];
 }
 
 let state: State = {
@@ -46,6 +62,7 @@ let state: State = {
   events: [],
   paymentCount: 0,
   lastError: null,
+  holds: [],
 };
 
 const listeners = new Set<() => void>();
@@ -85,22 +102,32 @@ export interface ConnectInput {
   maxSinglePayment: string;
   maxSessionSpend: string;
   durationMins: number;
+  approvalThreshold?: string;
+  rateLimit?: RateLimit;
 }
 
 export async function connect(input: ConnectInput): Promise<void> {
   set({ connecting: true });
   try {
     appKeypair = generateKeypair();
+    const requested = weatherAgentPairing.requestedLimits;
     client = createClaspClient({
       serverUrl: SERVER_URL,
       origin: APP_ORIGIN,
       app: { name: APP_NAME },
       permissions: input.permissions,
       asset: "CKB",
-      maxSinglePayment: input.maxSinglePayment,
-      maxSessionSpend: input.maxSessionSpend,
+      maxSinglePayment: requested.maxSinglePayment,
+      maxSessionSpend: requested.maxSessionSpend,
       sessionTtlMs: input.durationMins * 60_000,
       appKeypair,
+      approve: (request) =>
+        ownerWallet().approve(request, {
+          maxSinglePayment: input.maxSinglePayment,
+          maxSessionSpend: input.maxSessionSpend,
+          ...(input.approvalThreshold ? { approvalThreshold: input.approvalThreshold } : {}),
+          ...(input.rateLimit ? { rateLimit: input.rateLimit } : {}),
+        }),
     });
     client.on("revoked", () => {
       void refreshState();
@@ -116,6 +143,7 @@ export async function connect(input: ConnectInput): Promise<void> {
       paymentCount: 0,
       events: [],
       lastError: null,
+      holds: [],
     });
     push({ ts: Date.now(), kind: "approved", label: `Session approved for ${APP_NAME}` });
   } catch (error) {
@@ -139,6 +167,52 @@ async function refreshChild(): Promise<void> {
     set({ child: await childSession.getState() });
   } catch {
     /* server unreachable; keep last-known state */
+  }
+}
+
+export async function refreshHolds(): Promise<void> {
+  if (!session) return;
+  try {
+    set({ holds: await ownerWallet().listHolds(session.sessionId) });
+  } catch {
+    return;
+  }
+}
+
+function recordHeld(error: ClaspError, amount: string, purpose: string, who = ""): void {
+  push({ ts: Date.now(), kind: "held", label: `${who}Held for your approval · ${formatCkb(amount)} · ${purpose}`, code: error.code });
+  void refreshHolds();
+  void refreshState();
+  void refreshChild();
+}
+
+export async function decide(seen: HoldView, decision: PaymentDecisionKind): Promise<PayOutcome> {
+  const requestId = seen.requestId;
+  try {
+    const hold = await ownerWallet().decide(seen, decision);
+    await refreshHolds();
+    await refreshState();
+    await refreshChild();
+    if (hold.status === "settled" && hold.result) {
+      push({ ts: Date.now(), kind: "settled", label: `You approved · paid ${formatCkb(hold.amount)}`, detail: hold.result.paymentHash });
+      set({ paymentCount: state.paymentCount + 1 });
+      return {
+        ok: true,
+        paymentHash: hold.result.paymentHash ?? "",
+        amount: hold.amount,
+        remaining: hold.result.sessionRemaining,
+        receiptVerified: session?.verifyReceipt(hold.result) ?? false,
+        signature: hold.result.signature,
+      };
+    }
+    const error = claspError(hold.status === "denied" ? "approval_denied" : "gateway_failure", { requestId });
+    push({ ts: Date.now(), kind: "blocked", label: `You declined ${formatCkb(hold.amount)}`, code: error.code });
+    return { ok: false, error };
+  } catch (error) {
+    const rejection = asClaspError(error);
+    push({ ts: Date.now(), kind: "blocked", label: "Approval failed", code: rejection.code, detail: rejection.message });
+    await refreshHolds();
+    return { ok: false, error: rejection };
   }
 }
 
@@ -170,19 +244,24 @@ export async function pay(amount: string, purpose: string): Promise<PayOutcome> 
       signature: result.signature,
     };
   } catch (error) {
-    const claspError = asClaspError(error);
-    push({ ts: Date.now(), kind: "blocked", label: "Payment blocked", code: claspError.code, detail: claspError.message });
-    set({ lastError: claspError });
-    return { ok: false, error: claspError };
+    const rejection = asClaspError(error);
+    if (rejection.code === "approval_required") {
+      recordHeld(rejection, amount, purpose);
+      return { ok: false, error: rejection };
+    }
+    push({ ts: Date.now(), kind: "blocked", label: "Payment blocked", code: rejection.code, detail: rejection.message });
+    set({ lastError: rejection });
+    return { ok: false, error: rejection };
   }
 }
 
 export async function revoke(): Promise<void> {
   if (!session) return;
-  await session.revoke();
+  await ownerWallet().revoke(session.sessionId);
   await refreshState();
   await refreshChild();
-  push({ ts: Date.now(), kind: "revoked", label: "Session revoked by the user" });
+  await refreshHolds();
+  push({ ts: Date.now(), kind: "revoked", label: "Session revoked by the wallet owner" });
 }
 
 export async function exportStatement(): Promise<{ ok: boolean; verified: boolean }> {
@@ -264,10 +343,14 @@ export async function payAsChild(amount: string, purpose: string): Promise<PayOu
       signature: result.signature,
     };
   } catch (error) {
-    const claspError = asClaspError(error);
-    push({ ts: Date.now(), kind: "blocked", label: "Sub-agent payment blocked", code: claspError.code, detail: claspError.message });
-    set({ lastError: claspError });
-    return { ok: false, error: claspError };
+    const rejection = asClaspError(error);
+    if (rejection.code === "approval_required") {
+      recordHeld(rejection, amount, purpose, "Sub-agent · ");
+      return { ok: false, error: rejection };
+    }
+    push({ ts: Date.now(), kind: "blocked", label: "Sub-agent payment blocked", code: rejection.code, detail: rejection.message });
+    set({ lastError: rejection });
+    return { ok: false, error: rejection };
   }
 }
 
@@ -301,7 +384,7 @@ function signOperation(operation: string, parameters: Record<string, unknown>, n
   const unsigned = {
     version: "1" as const,
     sessionId: session!.sessionId,
-    requestId: `req_atk_${nonce}`,
+    requestId: `req_atk_${globalThis.crypto.randomUUID()}`,
     operation: operation as OperationRequest["operation"],
     parameters,
     nonce,
@@ -333,6 +416,10 @@ export async function attack(kind: AttackKind): Promise<ClaspError> {
     const body = await send(signOperation("payments:request", { invoice, amount: "1000000000", asset: "CKB" }, ++attackNonce), APP_ORIGIN);
     error = asRejection(body);
     label = "Requested 10 CKB over the cap";
+  } else if (kind === "burst") {
+    ({ error, label } = await burst());
+  } else if (kind === "selfapprove") {
+    ({ error, label } = await selfApprove());
   } else if (kind === "origin") {
     const invoice = await mintInvoice("10000000");
     const body = await send(signOperation("payments:request", { invoice, amount: "10000000", asset: "CKB" }, ++attackNonce), "https://evil.example");
@@ -341,16 +428,82 @@ export async function attack(kind: AttackKind): Promise<ClaspError> {
   } else {
     const invoice = await mintInvoice("10000000");
     const request = signOperation("payments:request", { invoice, amount: "10000000", asset: "CKB" }, ++attackNonce);
-    await send(request, APP_ORIGIN);
+    const first = await send(request, APP_ORIGIN);
     const body = await send(request, APP_ORIGIN);
     error = asRejection(body);
-    label = "Replayed a settled payment — count stays 1";
+    label = rateCapped(first) ?? "Replayed a settled payment — count stays 1";
     await refreshState();
   }
 
   push({ ts: Date.now(), kind: "blocked", label, code: error.code, detail: error.message });
   set({ lastError: error });
   return error;
+}
+
+async function burst(): Promise<{ error: ClaspError; label: string }> {
+  const limit = state.session?.rateLimit;
+  const count = (limit?.maxPayments ?? 3) + 2;
+  const requests = await Promise.all(
+    Array.from({ length: count }, async () => {
+      const invoice = await mintInvoice(BURST_AMOUNT);
+      return signOperation("payments:request", { invoice, amount: BURST_AMOUNT, asset: "CKB" }, ++attackNonce);
+    }),
+  );
+  const results = await Promise.all(requests.map((request) => send(request, APP_ORIGIN)));
+  const settled = results.filter((result) => !isClaspError(result)).length;
+  const limited = results.filter((result): result is ClaspError => isClaspError(result) && result.code === "rate_limit_exceeded");
+  set({ paymentCount: state.paymentCount + settled });
+  await refreshState();
+  return {
+    error: limited[0] ?? asRejection(results[results.length - 1]!),
+    label: `Fired ${count} payments at once — ${settled} settled, ${limited.length} rate-limited`,
+  };
+}
+
+async function selfApprove(): Promise<{ error: ClaspError; label: string }> {
+  const snapshot = state.session!;
+  const amount = snapshot.maxSinglePayment;
+  const invoice = await mintInvoice(amount);
+  const held = await send(signOperation("payments:request", { invoice, amount, asset: "CKB" }, ++attackNonce), APP_ORIGIN);
+  if (!isClaspError(held) || held.code !== "approval_required") {
+    return { error: asRejection(held), label: rateCapped(held) ?? "Payment was not held" };
+  }
+  await refreshState();
+  const requestId = held.requestId as string;
+  const seen = await session!.getHold(requestId);
+  const unsigned = {
+    version: "1" as const,
+    requestId,
+    sessionId: seen.sessionId,
+    amount: seen.amount,
+    invoice: seen.invoice,
+    walletPubKey: session!.walletPubKey,
+    decision: "approve" as const,
+    timestamp: Math.floor(Date.now() / 1000),
+  };
+  const res = await fetch(`${SERVER_URL}/holds/${requestId}/decision`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...unsigned, signature: signDecision(unsigned, appKeypair!.privateKey) }),
+  });
+  await refreshHolds();
+  return {
+    error: asRejection((await res.json()) as ClaspError),
+    label: `Agent signed its own approval for a held ${formatCkb(amount)} — still waiting for you`,
+  };
+}
+
+function rateCapped(body: OperationResult | ClaspError): string | null {
+  if (!isClaspError(body) || body.code !== "rate_limit_exceeded") return null;
+  return `Rate cap reached first — wait ${body.retryAfterSeconds as number}s and run it again`;
+}
+
+export function attackReady(kind: AttackKind, snapshot: SessionSnapshot): boolean {
+  if (kind === "burst") return Boolean(snapshot.rateLimit);
+  if (kind === "selfapprove") {
+    return Boolean(snapshot.approvalThreshold) && gtAmounts(snapshot.maxSinglePayment, snapshot.approvalThreshold!);
+  }
+  return true;
 }
 
 function asRejection(body: OperationResult | ClaspError): ClaspError {
