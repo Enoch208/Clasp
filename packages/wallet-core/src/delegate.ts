@@ -3,6 +3,7 @@ import {
   gtAmounts,
   type ClaspError,
   type DelegationRequest,
+  type RateLimit,
   type SessionFacts,
 } from "@clasp/protocol";
 import { verifySession, verifyDelegation, signSession, type Keypair } from "@clasp/token";
@@ -21,6 +22,20 @@ export interface DelegateResult {
   childSessionId: string;
   childToken: string;
   child: StoredSession;
+}
+
+function childThreshold(requested: string | undefined, parent: string | null): string | undefined | "widen" {
+  if (requested === undefined) return parent ?? undefined;
+  if (parent !== null && gtAmounts(requested, parent)) return "widen";
+  return requested;
+}
+
+function childRateLimit(requested: RateLimit | undefined, parent: RateLimit | null): RateLimit | undefined | "widen" {
+  if (requested === undefined) return parent ?? undefined;
+  if (parent && (requested.maxPayments > parent.maxPayments || requested.windowSeconds < parent.windowSeconds)) {
+    return "widen";
+  }
+  return requested;
 }
 
 export function delegate(
@@ -73,9 +88,19 @@ export function delegate(
   if (gtAmounts(request.maxSessionSpend, parent.maxSessionSpend)) {
     return claspError("attenuation_violation", { reason: "session_spend_widen" });
   }
-  if (expiryToMs(request.expiresAt) > expiryToMs(parent.expiresAt)) {
+  const childExpiry = expiryToMs(request.expiresAt);
+  if (!Number.isFinite(childExpiry) || childExpiry > expiryToMs(parent.expiresAt)) {
     return claspError("attenuation_violation", { reason: "expiry_widen" });
   }
+  const approvalThreshold = childThreshold(request.approvalThreshold, parent.approvalThreshold);
+  if (approvalThreshold === "widen") {
+    return claspError("attenuation_violation", { reason: "approval_threshold_widen" });
+  }
+  if (approvalThreshold && !parent.ownerPubKey) {
+    return claspError("attenuation_violation", { reason: "threshold_without_owner" });
+  }
+  const rateLimit = childRateLimit(request.rateLimit, parent.rateLimit);
+  if (rateLimit === "widen") return claspError("attenuation_violation", { reason: "rate_limit_widen" });
 
   const childSessionId = newSessionId();
   const child = store.createSession(
@@ -89,6 +114,9 @@ export function delegate(
       expiresAt: request.expiresAt,
       appPubKey: request.childAppPubKey,
       parentId: parent.id,
+      ownerPubKey: parent.ownerPubKey ?? undefined,
+      approvalThreshold,
+      rateLimit,
     },
     now,
   );
