@@ -15,6 +15,17 @@ Raw FNN method names are never the public protocol. Clasp defines a stable vocab
 
 ## Wire formats
 
+**SessionApproval** (the *owner* signs every field except `signature`; `POST /sessions`). The app proposes; the owner signs what it actually gets, including the optional rules:
+```json
+{ "version": "1", "approvalId": "apr_…", "origin": "https://weather.example",
+  "permissions": ["payments:request"], "asset": "CKB",
+  "maxSinglePayment": "50000000", "maxSessionSpend": "200000000", "expiresAt": "…",
+  "appPubKey": "…", "approvalThreshold": "25000000",
+  "rateLimit": { "maxPayments": 5, "windowSeconds": 60 },
+  "ownerPubKey": "…", "timestamp": 1784150100, "signature": "…" }
+```
+The wallet replies `{ sessionId, session, token, walletPubKey }`. The token's signed facts include `ownerPubKey`, `approvalThreshold` and `rateLimit` when set, so the rules are as tamper-proof as the caps.
+
 **OperationRequest** (the app signs every field except `signature`):
 ```json
 { "version": "1", "sessionId": "sess_…", "requestId": "req_…", "operation": "payments:request",
@@ -34,9 +45,21 @@ Raw FNN method names are never the public protocol. Clasp defines a stable vocab
   "permissions": ["payments:request"], "asset": "CKB", "maxSinglePayment": "50000000",
   "maxSessionSpend": "100000000", "expiresAt": "…", "timestamp": 1784150100, "signature": "0x…" }
 ```
-The wallet replies with the minted child: `{ childSessionId, session, token, walletPubKey }`, or a `ClaspError` (e.g. `attenuation_violation`) if the child is not ⊆ the parent.
+The wallet replies with the minted child: `{ childSessionId, session, token, walletPubKey }`, or a `ClaspError` (e.g. `attenuation_violation`) if the child is not ⊆ the parent. Optional `approvalThreshold` and `rateLimit` may only tighten the parent's; when omitted the child inherits them, along with the parent's owner.
 
-**ClaspError** (every rejection): `{ code, message, retryable, nextAction, …fields }`. Codes: `session_not_found`, `session_revoked`, `session_expired`, `invalid_signature`, `permission_denied`, `origin_mismatch`, `replay_detected`, `stale_timestamp`, `nonce_out_of_order`, `invoice_amount_mismatch`, `asset_not_allowed`, `single_payment_limit_exceeded`, `session_spending_limit_exceeded`, `gateway_failure`, `attenuation_violation`.
+**Held payments.** A payment above `approvalThreshold` returns `approval_required` with `requestId` and `holdExpiresAt`. The app polls `GET /holds/:requestId` (`session.waitForApproval()` in the SDK) for `{ hold: { status, amount, …, result? } }`, where `status` is `pending`, `approving`, `settled` (with the wallet-signed `result`), `denied`, `expired`, `cancelled` or `failed`. The owner lists them with `GET /sessions/:id/holds` and decides with:
+
+**PaymentDecision** (the owner signs; `POST /holds/:requestId/decision`):
+```json
+{ "version": "1", "requestId": "req_…", "decision": "approve", "timestamp": 1784150100, "signature": "…" }
+```
+
+**RevokeRequest** (signed by the app key or the owner key; `POST /sessions/:id/revoke`):
+```json
+{ "version": "1", "sessionId": "sess_…", "by": "owner", "timestamp": 1784150100, "signature": "…" }
+```
+
+**ClaspError** (every rejection): `{ code, message, retryable, nextAction, …fields }`. Codes: `session_not_found`, `session_revoked`, `session_expired`, `invalid_signature`, `permission_denied`, `origin_mismatch`, `replay_detected`, `stale_timestamp`, `nonce_out_of_order`, `invoice_amount_mismatch`, `asset_not_allowed`, `single_payment_limit_exceeded`, `session_spending_limit_exceeded`, `gateway_failure`, `attenuation_violation`, `rate_limit_exceeded` (`retryAfterSeconds`), `approval_required` (`nextAction: "await_approval"`), `approval_denied`, `approval_expired`.
 
 ## Conventions
 

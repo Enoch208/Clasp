@@ -1,119 +1,133 @@
-# Clasp Quickstart — server + SDK (Spec 1)
+# Quickstart
 
-This is the backend spine of Clasp: an HTTP service that runs the policy engine and a
-thin signed-HTTP client SDK. It lets an app or agent open a **limited, time-boxed,
-revocable** wallet session and settle payments through it — the app can *request*
-authority, but the wallet keeps final control.
+From nothing to an agent paying through a Clasp session in a few minutes: run a wallet core, install the SDK, pair with an owner approval, pay, and handle a payment the owner has to approve.
 
-> **Mode:** this build ships the deterministic `FakeGateway`, so payments settle
-> locally with a derived payment hash. The server banner reads
-> `DEMO MODE — NO NETWORK PAYMENT`. The real Fiber adapter (`FnnGateway`) lands in Spec 4.
+## 1. Run a wallet core
 
-## What's here
+**With Docker** (core stays private, only the keyless relay is published on `:8790`):
 
-| Package | Role |
-|---|---|
-| `packages/protocol` | Shared contracts: zod schemas, permission vocabulary, error codes, money math, state machine. Pure, no I/O. |
-| `packages/client` | The SDK: `createClaspClient({...})` → `connect()`, `session.request()`, `session.requestPayment()`, `revoke()`. Signs every request with the app key; emits `revoked`. |
-| `apps/server` | Express service: `POST /sessions`, `POST /operations`, `POST /sessions/:id/revoke`, `GET /sessions/:id`. Holds the wallet keypair; injects the gateway; runs the engine. |
+```bash
+git clone https://github.com/Enoch208/Clasp && cd Clasp
+docker compose up --build
+curl http://localhost:8790/health
+# {"status":"ok","mode":"DEMO","sealing":true,"owners":"open","walletPubKey":"…"}
+```
 
-## Run it
+**Without Docker** (Node 20+, pnpm):
 
 ```bash
 pnpm install
-pnpm --filter @clasp/server dev      # tsx watch, listens on :8787 by default
+pnpm --filter @clasp/server start                                  # core on :8787
+PORT=8790 CLASP_CORE_URL=http://127.0.0.1:8787 pnpm --filter @clasp/relay start
 ```
 
-Environment (all optional in dev):
+With no Fiber node configured the core runs in `DEMO` mode: payments settle locally and every response says so. Configuration, all optional:
 
-| Var | Meaning |
+| Variable | Meaning |
 |---|---|
-| `PORT` | Listen port (default `8787`). |
-| `CLASP_WALLET_PRIVATE_KEY` | 64-hex Ed25519 wallet key. If unset, an **ephemeral** dev key is generated (sessions reset on restart, and the server says so). |
-| `CLASP_FNN_URL` | Reserved for Spec 4. Setting it today logs a note and still uses `FakeGateway`. |
+| `CLASP_WALLET_PRIVATE_KEY` | 64-hex Ed25519 wallet key. Unset → an ephemeral key, and the server warns you. |
+| `CLASP_BOX_PRIVATE_KEY` | 64-hex X25519 key for sealed (relay-blind) requests. Unset → ephemeral. |
+| `CLASP_OWNER_PUBKEYS` | Comma-separated owner public keys allowed to approve sessions. Unset → `open` mode (any owner key). A malformed list stops the server instead of falling back to open. |
+| `CLASP_FNN_URL` / `CLASP_FNN_INVOICE_URL` | Your Fiber node's JSON-RPC (payer / payee). Set → `REAL` mode. From Docker, use `http://host.docker.internal:8227` for a node on the host. See [REAL_TESTNET.md](REAL_TESTNET.md). |
+| `CLASP_DB` | SQLite path (Docker uses the `clasp-data` volume). |
 
-## Use the SDK
+For a wallet you actually use, set `CLASP_OWNER_PUBKEYS` to your owner key so only you can approve sessions and held payments.
+
+## 2. Install the SDK
+
+```bash
+npm install @useclasp/client
+```
+
+## 3. Pair, pay, and handle a held payment
 
 ```ts
-import { createClaspClient } from "@clasp/client";
+import { ClaspErrorException, createClaspClient, createClaspWallet } from "@useclasp/client";
+
+const serverUrl = "http://localhost:8790";
+const wallet = createClaspWallet({ serverUrl });
+
+async function mint(amount: string) {
+  const res = await fetch(`${serverUrl}/invoices`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ amount, asset: "CKB" }),
+  });
+  return ((await res.json()) as { invoice: string }).invoice;
+}
 
 const client = createClaspClient({
-  serverUrl: "http://127.0.0.1:8787",
-  origin: "https://weather.example",
-  app: { name: "Weather Agent" },
-  permissions: ["payments:request", "invoices:read"],
+  serverUrl,
+  origin: "https://agent.example",
+  app: { name: "Research Agent" },
+  permissions: ["payments:request"],
   asset: "CKB",
-  maxSinglePayment: "100000000",   // integer strings, smallest unit (shannons)
-  maxSessionSpend: "250000000",
+  maxSinglePayment: "100000000",
+  maxSessionSpend: "300000000",
+  approve: (request) =>
+    wallet.approve(request, {
+      approvalThreshold: "50000000",
+      rateLimit: { maxPayments: 10, windowSeconds: 3600 },
+    }),
 });
 
-client.on("revoked", (sessionId) => {
-  console.log("session revoked out-of-band:", sessionId);
-});
+const session = await client.connect();
 
-const session = await client.connect();               // POST /sessions (dev/simulated approval)
-
-const result = await session.requestPayment({         // POST /operations, signed with the app key
-  invoice: "fibinv1_CKB_40000000",
-  amount: "40000000",
-});
-console.log(result.status, result.paymentHash, result.sessionRemaining);
-
-const state = await session.getState();               // GET /sessions/:id
-console.log(state.spent, state.state);
-```
-
-Rejections are **data, not exceptions on the wire**: `POST /operations` always returns
-HTTP 200, with either a signed `OperationResult` or a structured `ClaspError`
-(`{ code, message, retryable, nextAction, ... }`). The SDK turns a `ClaspError` body
-into a thrown `ClaspErrorException` you can branch on:
-
-```ts
-import { ClaspErrorException } from "@clasp/protocol";
+const small = await session.requestPayment({ invoice: await mint("10000000"), amount: "10000000" });
+console.log(small.status, session.verifyReceipt(small));
 
 try {
-  await session.requestPayment({ invoice: "fibinv1_CKB_200000000", amount: "200000000" });
-} catch (e) {
-  if (e instanceof ClaspErrorException) {
-    console.log(e.error.code);        // "single_payment_limit_exceeded"
-    console.log(e.error.nextAction);  // "reduce_amount"
-  }
+  await session.requestPayment({ invoice: await mint("80000000"), amount: "80000000" });
+} catch (error) {
+  if (!(error instanceof ClaspErrorException) || error.error.code !== "approval_required") throw error;
+  const waiting = session.waitForApproval(error.error.requestId as string);
+
+  const [hold] = await wallet.listHolds(session.sessionId);
+  await wallet.decide(hold!, "approve");
+
+  const receipt = await waiting;
+  console.log("approved and settled", receipt.amount, session.verifyReceipt(receipt));
 }
 ```
 
-## The endpoints
+`approve` is the seam between the app and the user's wallet. Here both halves run in one script so you can see the whole flow; in a real app the request goes to the user's wallet, which holds the owner key and signs. The owner can only **narrow** what the app asked for: `wallet.approve()` refuses to add permissions, raise limits, or extend the expiry.
 
-| Method / path | Body → response |
-|---|---|
-| `POST /sessions` | session facts (origin, permissions, asset, limits, `expiresAt`, `appPubKey`) → `201 { sessionId, session, token, walletPubKey }`. Dev/simulated approval creates an `ACTIVE` session; the real approval UI is Spec 3. |
-| `POST /operations` | signed `OperationRequest` (+ `x-clasp-origin` header) → `200` signed `OperationResult` **or** `ClaspError`. |
-| `POST /sessions/:id/revoke` | → `200 { session }` (state `REVOKED`), or `404` `ClaspError`. |
-| `GET /sessions/:id` | → `200 { session }` (state + accumulated spend), or `404` `ClaspError`. |
+Amounts are integer strings in shannons (1 CKB = `100000000`).
 
-The declared **origin** travels in the `x-clasp-origin` header (a real browser's
-unforgeable `Origin` header wins when present — that hardening is a Spec 3 / real-relay
-concern). A copied token replayed from another origin fails with `origin_mismatch`.
+## 4. Branch on structured errors
 
-## Verify
+Every rejection is data with a stable `code`, plus `retryable` and `nextAction`:
 
-```bash
-pnpm test        # vitest: protocol unit tests, server contract tests, client end-to-end
-pnpm typecheck   # tsc --noEmit across every package
+```ts
+try {
+  await session.requestPayment({ invoice, amount });
+} catch (error) {
+  if (error instanceof ClaspErrorException) {
+    switch (error.error.code) {
+      case "approval_required":
+        return session.waitForApproval(error.error.requestId as string);
+      case "rate_limit_exceeded":
+        return retryIn(error.error.retryAfterSeconds as number);
+      case "session_spending_limit_exceeded":
+        return askForSmallerAmount();
+    }
+  }
+  throw error;
+}
 ```
 
-The end-to-end path (`apps/server/src/operations.integration.test.ts`) drives a real
-listening server through the real SDK: connect → sign → settle → revoke → the client
-receives the `revoked` event and its next payment is blocked.
+The full list is in [PROTOCOL.md](PROTOCOL.md).
 
-## Integration seams (temporary)
+## 5. React
 
-Spec 1 is built in parallel with the core engine. Until `packages/{token,gateway,wallet-core}`
-merge to `main`, this track carries small stand-ins it will delete on integration:
+```bash
+npm install @useclasp/react @useclasp/client
+```
 
-- `apps/server/src/wallet-core.ts` defines the `WalletCore` interface the server depends on;
-  `apps/server/src/stub/` provides a working implementation (policy engine + `FakeGateway` +
-  Ed25519 signing via `node:crypto`). After `git merge main`, the stub is replaced by
-  `@clasp/wallet-core`'s `evaluate()`, `@clasp/gateway`'s `FakeGateway`, and `@clasp/token`.
-- `packages/client/src/crypto.ts` is the client's signing stand-in for `@clasp/token`; it uses
-  the same canonical serialization (recursive key sort, `signature` excluded), so signatures
-  stay valid across the swap.
+`<ClaspProvider config={…}>`, `useClaspSession()` and `<ConnectFiberWalletButton />` wrap the same client; `config` takes the same fields, including `approve`. The [`/sdk` page](https://useclasp.xyz/sdk) is a live example.
+
+## Verify the repo
+
+```bash
+pnpm verify   # typecheck + full test suite + production web build
+```

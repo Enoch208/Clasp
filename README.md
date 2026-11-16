@@ -5,7 +5,7 @@
 # Clasp
 
 [![MIT](https://img.shields.io/badge/license-MIT-black)](LICENSE)
-![tests](https://img.shields.io/badge/tests-122%20passing-2FA46A)
+![tests](https://img.shields.io/badge/tests-178%20passing-2FA46A)
 ![network](https://img.shields.io/badge/network-Fiber%20(CKB)%20testnet-FFCC33)
 [![live](https://img.shields.io/badge/live-useclasp.xyz-5BA4FF)](https://useclasp.xyz)
 ![stack](https://img.shields.io/badge/Next.js%2016%20·%20React%2019%20·%20TypeScript-1f1f23)
@@ -43,6 +43,7 @@ Or skip the video and go break it yourself at **[useclasp.xyz](https://useclasp.
 - [Architecture](#architecture)
 - [The 10-step policy engine (every request, every time)](#the-10-step-policy-engine-every-request-every-time)
 - [The Security Lab — attack it and watch it win](#the-security-lab--attack-it-and-watch-it-win)
+- [Owner rules — approval above an amount, rate caps](#owner-rules--approval-above-an-amount-rate-caps)
 - [Delegation — attenuated authority for AI agents](#delegation--attenuated-authority-for-ai-agents)
 - [The sealed, content-blind relay](#the-sealed-content-blind-relay)
 - [Everything is verifiable — receipts, statements, capabilities](#everything-is-verifiable--receipts-statements-capabilities)
@@ -81,9 +82,9 @@ Open-source infrastructure — a pairing protocol, a wallet **policy engine**, a
 
 1. **Pair** — an app requests scoped permissions + spend limits. No RPC URL, no credential, no keys — just a declared request.
 2. **Review & reduce** — the wallet translates each permission into a plain-language consequence, and the user **dials the limits down**. The app asks; the user decides what it actually gets.
-3. **Approve** — the wallet signs an Ed25519 session token carrying the **user's reduced values** — never the app's request. An app structurally cannot widen what was approved.
+3. **Approve** — the user's **owner key** signs the reduced values plus two optional rules (ask before paying over an amount, a payments-per-minute cap), and the wallet turns only that owner-signed approval into an Ed25519 session token. An app structurally cannot widen what was approved, or approve itself into a session on a wallet with an owner list.
 4. **Pay** — each operation runs the 10-step policy engine; a **real Fiber payment** settles and returns a **wallet-signed receipt** the app can verify.
-5. **Block** — a malicious app is stopped live, with machine-readable reasons: `permission_denied`, `single_payment_limit_exceeded`, `replay_detected`, `origin_mismatch`.
+5. **Block** — a malicious app is stopped live, with machine-readable reasons: `permission_denied`, `single_payment_limit_exceeded`, `replay_detected`, `origin_mismatch`, `rate_limit_exceeded`, and `invalid_signature` when it tries to approve its own held payment.
 6. **Revoke** — one tap moves the session to `REVOKED`. Every later request fails instantly — and revocation **cascades** to any delegated sub-agents.
 
 | Review & reduce | Real payment + hash | Attacks blocked | Delegation |
@@ -126,7 +127,7 @@ Authority flows one direction and **narrows at every hop**. The security propert
 
 ```mermaid
 flowchart LR
-    APP["App / AI agent<br/>@clasp/client · @clasp/react"] -->|"signed operation requests<br/>(sealed: X25519 + XChaCha20)"| RELAY["Relay — @clasp/relay<br/>separate keyless service<br/>content-blind in sealed mode"]
+    APP["App / AI agent<br/>@useclasp/client · @useclasp/react"] -->|"signed operation requests<br/>(sealed: X25519 + XChaCha20)"| RELAY["Relay — @clasp/relay<br/>separate keyless service<br/>content-blind in sealed mode"]
     RELAY --> CORE{"Wallet core — apps/server<br/>10-step policy engine<br/>SQLite sessions · atomic spend<br/>revocation · delegation"}
     CORE -->|"4 allow-listed ops only"| GW["Gateway — @clasp/gateway<br/>FnnGateway"]
     GW -->|"private JSON-RPC<br/>127.0.0.1 — never public"| FNN["Fiber testnet<br/>wallet node ⇄ merchant node<br/>real funded channel"]
@@ -145,8 +146,8 @@ flowchart LR
 | `@clasp/token` | Ed25519 sign/verify for sessions, operations, results, delegations, statements · X25519 + XChaCha20-Poly1305 sealed box (isomorphic Node/browser) |
 | `@clasp/gateway` | The 4-method `Gateway` interface · `FakeGateway` (demo) · `FnnGateway` (real, verified against live `nervos/fiber` nodes) |
 | `@clasp/wallet-core` | SQLite session store · the 10-step `evaluate()` engine with atomic reserve-then-settle · `delegate()` with attenuation checks · cascade revocation |
-| `@clasp/client` | The SDK — `connect()`, `requestPayment()`, `session.delegate()`, `getCapabilities()`, `verifyReceipt()`, `getStatement()` / `verifyStatement()`, sealed mode |
-| `@clasp/react` | React bindings — `<ClaspProvider>`, `useClaspSession()`, `<ConnectFiberWalletButton>` |
+| `@useclasp/client` | The SDK — `connect()`, `requestPayment()`, `session.delegate()`, `getCapabilities()`, `verifyReceipt()`, `getStatement()` / `verifyStatement()`, sealed mode |
+| `@useclasp/react` | React bindings — `<ClaspProvider>`, `useClaspSession()`, `<ConnectFiberWalletButton>` |
 | `@clasp/relay` | Standalone **keyless** transport relay — forwards to the core, trustless by signature, content-blind in sealed mode |
 | `apps/server` | The wallet **core**: Express service wiring wallet-core ⊕ gateway (the only holder of keys + node URL) |
 | `apps/web` | Next.js 16 — landing + six product surfaces: `/demo`, `/wallet`, `/dashboard`, `/delegate`, `/lab`, `/sdk` |
@@ -185,6 +186,17 @@ The live app ships with a **[Security Lab](https://useclasp.xyz/lab)** where the
 
 Every rejection is structured data — `{ code, message, retryable, nextAction }` — rendered in the UI exactly as the engine returned it, with a blocked-events timeline.
 
+## Owner rules — approval above an amount, rate caps
+
+Both came straight out of the community AMA, and both are signed into the session by the owner, so the app can't strip them out:
+
+- **Ask me before paying over X.** Payments above the session's `approvalThreshold` run the whole engine, reserve their amount, and then wait. The app gets `approval_required` with a `requestId` and can `await session.waitForApproval(requestId)`. Only a decision signed by the session's owner key settles it; an agent that signs its own approval gets `invalid_signature` and the payment stays held. Decline, a 10-minute expiry, or revoking the session all refund the reservation, and compare-and-set status updates mean two concurrent approvals still pay once.
+- **N payments per window.** The rate cap is counted inside the same `BEGIN IMMEDIATE` transaction as the spend cap, so a burst of concurrent requests lets exactly N through; the rest get `rate_limit_exceeded` with `retryAfterSeconds`. A parent's cap counts its sub-agents' payments, so spawning more agents doesn't buy more throughput.
+
+Sub-agents inherit both rules and the owner, and may only tighten them. Try both in the **[Security Lab](https://useclasp.xyz/lab)**: "Payment burst" and "Approve its own payment".
+
+A self-hosted core should set `CLASP_OWNER_PUBKEYS` so only your owner keys can approve sessions. The public demo runs in open mode, where each visitor's browser key becomes the owner of the sessions it approves; `GET /api/health` reports which mode is live.
+
 ## Delegation — attenuated authority for AI agents
 
 The agent-economy feature: an agent holding `payments:auto` can mint a **weaker child credential** for a sub-agent. Delegation is **attenuation-only** — authority can narrow, never widen:
@@ -213,24 +225,29 @@ Trust artifacts an app (or its user) can check without trusting the transport:
 
 ## The SDK — adopt it in a few lines
 
-```tsx
-import { ClaspProvider, ConnectFiberWalletButton, useClaspSession } from "@clasp/react";
-
-<ClaspProvider config={{ serverUrl, origin, app: { name: "Acme Checkout" },
-  permissions: ["payments:request"], asset: "CKB",
-  maxSinglePayment: "100000000", maxSessionSpend: "300000000",
-  sealed: true }}>  {/* end-to-end encrypt payloads; the relay stays blind */}
-  <Checkout />
-</ClaspProvider>;
-
-// inside <Checkout/>
-const { pay, capabilities } = useClaspSession();
-<ConnectFiberWalletButton />;
-const r = await pay({ invoice, amount: "100000000" });
-if (r.ok && r.receipt.verified) unlock();
+```bash
+npm install @useclasp/client          # or @useclasp/react
 ```
 
-That snippet is not aspirational — it *is* the **[useclasp.xyz/sdk](https://useclasp.xyz/sdk)** page: a second app (Acme Checkout) driving the same live policy engine through `@clasp/react`, sealed, with capability discovery and a verified receipt on screen. The lower-level `@clasp/client` exposes the same power without React.
+```ts
+import { createClaspClient, createClaspWallet } from "@useclasp/client";
+
+const wallet = createClaspWallet({ serverUrl });          // the owner's side, holds the owner key
+const client = createClaspClient({
+  serverUrl, origin: "https://agent.example", app: { name: "Research Agent" },
+  permissions: ["payments:request"], asset: "CKB",
+  maxSinglePayment: "100000000", maxSessionSpend: "300000000",
+  approve: (request) => wallet.approve(request, {          // the owner narrows and adds rules
+    approvalThreshold: "50000000", rateLimit: { maxPayments: 10, windowSeconds: 3600 },
+  }),
+});
+
+const session = await client.connect();
+const receipt = await session.requestPayment({ invoice, amount: "10000000" });
+session.verifyReceipt(receipt);                           // wallet-signed proof of settlement
+```
+
+The React bindings wrap the same client: `<ClaspProvider config={…}>`, `useClaspSession()` and `<ConnectFiberWalletButton />`, live on the **[useclasp.xyz/sdk](https://useclasp.xyz/sdk)** page (a second app, Acme Checkout, sealed end to end, with capability discovery and a verified receipt on screen). The **[quickstart](docs/QUICKSTART.md)** goes from `docker compose up` to an approved, held, settled payment.
 
 ## Designed for agents — the error vocabulary
 
@@ -241,7 +258,7 @@ Agents can't read error prose; they branch on codes. Every rejection in Clasp is
   "retryable": false, "nextAction": "reduce_amount", "amount": "…", "spent": "…", "cap": "…" }
 ```
 
-The full vocabulary: `session_not_found` · `session_revoked` · `session_expired` · `invalid_signature` · `permission_denied` · `origin_mismatch` · `replay_detected` · `stale_timestamp` · `nonce_out_of_order` · `invoice_amount_mismatch` · `asset_not_allowed` · `single_payment_limit_exceeded` · `session_spending_limit_exceeded` · `gateway_failure` · `attenuation_violation` — each with `retryable` and a machine-actionable `nextAction` (`pair_again`, `resign_and_retry`, `reduce_amount`, `retry`, `abort`).
+The full vocabulary: `session_not_found` · `session_revoked` · `session_expired` · `invalid_signature` · `permission_denied` · `origin_mismatch` · `replay_detected` · `stale_timestamp` · `nonce_out_of_order` · `invoice_amount_mismatch` · `asset_not_allowed` · `single_payment_limit_exceeded` · `session_spending_limit_exceeded` · `gateway_failure` · `attenuation_violation` · `rate_limit_exceeded` · `approval_required` · `approval_denied` · `approval_expired` — each with `retryable` and a machine-actionable `nextAction` (`pair_again`, `resign_and_retry`, `reduce_amount`, `retry`, `retry_later`, `await_approval`, `abort`).
 
 Permissions are a tiered vocabulary, not raw RPC names: **safe reads** (`node:read`, `channels:read`, …), **user-approved writes** (`invoices:create`, `payments:request`, `payments:auto`), **high-risk** (`channels:open/close`, … — defined but *not grantable* in this build), and **never exposed** (`raw-rpc`, `private-key:export`, `admin:unrestricted` — no handler exists).
 
@@ -251,7 +268,7 @@ All routes are served through the keyless relay at `https://useclasp.xyz/api/*`:
 
 | Route | Purpose |
 |---|---|
-| `POST /sessions` | Create a session from user-approved (reduced) facts → wallet-signed token |
+| `POST /sessions` | Create a session from an owner-signed approval (reduced limits + rules) → wallet-signed token |
 | `POST /operations` | Execute a signed operation through the 10-step engine |
 | `POST /sealed` | Same, but the payload is sealed end-to-end — the relay sees ciphertext |
 | `GET /box-key` | The core's X25519 public key for sealing |
@@ -259,8 +276,11 @@ All routes are served through the keyless relay at `https://useclasp.xyz/api/*`:
 | `POST /invoices` | Create a merchant invoice (demo helper) |
 | `GET /sessions/:id` | Live session state incl. accumulated spend |
 | `GET /sessions/:id/statement` | Wallet-signed, verifiable audit statement |
-| `POST /sessions/:id/revoke` | Kill the session (cascades to delegated children) |
-| `GET /health` | Mode (`REAL`/`DEMO`) + sealing status |
+| `POST /sessions/:id/revoke` | Kill the session, signed by the app or the owner (cascades to delegated children) |
+| `GET /sessions/:id/holds` | Payments held for the owner's approval (includes sub-agents') |
+| `GET /holds/:requestId` | One held payment's status, with the signed receipt once settled |
+| `POST /holds/:requestId/decision` | Owner-signed approve / decline |
+| `GET /health` | Mode (`REAL`/`DEMO`), sealing status, owner mode (`open`/`allow-list`) |
 | `GET /__relay` | Relay identity — proves traffic flows through the keyless relay |
 
 ## Engineering decisions & the hard problems
@@ -280,21 +300,25 @@ The bugs that taught something, and the decisions worth defending — the one ru
 
 | Capability | Status |
 |---|---|
-| **10-step policy engine** | Real. Every operation, in order, 122 automated tests including the core security suite. |
+| **10-step policy engine** | Real. Every operation, in order, 178 automated tests including the core security suite. |
 | **Atomic spend accounting** | Real. `BEGIN IMMEDIATE` + `UNIQUE` constraints; concurrency test proves the cap holds under race. |
 | **The four attacks** | Real. Produced by the real engine on real signed requests — nothing in the Security Lab is simulated. |
 | **Real Fiber testnet settlement** | Real. Two `nervos/fiber` nodes, funded channel, verified hash `0x3d2c38da…ccdcfa`. |
 | **Revocation + cascade** | Real. `REVOKED` sessions fail instantly; children die with their parent. |
 | **Attenuated delegation** | Real. Subset-checked on every axis; shared pool; `attenuation_violation` on widening; nesting refused. |
+| **Owner-signed approvals** | Real. Sessions only from owner-signed approvals; optional owner allow-list; signed revocation. |
+| **Approval above an amount** | Real. Held, reserved, settled only by the owner's signature; self-approval, double-approval, expiry and revoke covered by tests and the Security Lab. |
+| **Rate caps** | Real. Counted inside the atomic reservation; concurrency test proves a burst gets exactly N through. |
 | **Standalone keyless relay** | Real. Separate process, live in front of `/api` (`GET /api/__relay`), trustless-by-signature tests. |
 | **Content-blind sealed mode** | Real. X25519 + XChaCha20-Poly1305; a body-capturing relay test proves ciphertext-only; live `/sdk` runs sealed. |
 | **Receipts / statements / capabilities** | Real. Wallet-signed, client-verified, tamper tests. |
-| **React bindings** | Real. `@clasp/react` drives the whole `/sdk` surface. |
+| **React bindings** | Real. `@useclasp/react` drives the whole `/sdk` surface. |
 | The "merchant" | A second node this project runs (production would be any Fiber node — the topology is the faithful model). |
 | Origin binding | App-declared origin header in this build; unforgeable browser `Origin` is roadmap hardening. |
-| Approval ceremony | Device-PIN model in the UI; WebAuthn/passkeys are roadmap. |
+| Owner key | Ed25519 key in the browser's local storage; WebAuthn/passkeys are roadmap. The public demo runs in open owner mode. |
+| Unknown payment outcomes | An approved hold whose payment never gets an answer stays `approving` and reserved; reconciliation is roadmap. |
 | Relay isolation | Separate *process*, not yet a separate *host*. |
-| Not built (never faked) | WebAuthn · QR/deep-link pairing · multi-asset (UDT) · high-risk channel permissions. |
+| Not built (never faked) | WebAuthn · QR/deep-link pairing · multi-asset (UDT) · high-risk channel permissions · time-of-day and per-recipient rules. |
 
 ## Tech stack
 
@@ -303,7 +327,7 @@ The bugs that taught something, and the decisions worth defending — the one ru
 - **Server & relay:** Express 5 + tsx, SQLite via `better-sqlite3`.
 - **Crypto:** `@noble/ed25519` (sessions, requests, receipts, statements), `@noble/curves` X25519 + `@noble/ciphers` XChaCha20-Poly1305 (sealed mode) — all isomorphic.
 - **Validation:** Zod schemas as the single wire-format truth.
-- **Testing:** Vitest — 122 tests across protocol, token, gateway, wallet-core, client, server, relay (+ a separate web logic suite).
+- **Testing:** Vitest — 178 tests across protocol, token, gateway, wallet-core, client, server, relay (+ a separate web logic suite).
 - **Deploy:** VPS · pm2 (`clasp-server`, `clasp-relay`, `clasp-web`) · Caddy · Cloudflare tunnel · two Dockerized `nervos/fiber` testnet nodes with a real funded channel.
 
 ## Project layout
@@ -329,7 +353,13 @@ clasp-prd.md       # the spec this was built against
 
 ## Run it locally
 
-Prerequisites: Node 20+, pnpm.
+Just the wallet core and relay, with Docker:
+
+```bash
+docker compose up --build            # relay on :8790, core private inside the compose network
+```
+
+The whole app (Node 20+, pnpm):
 
 ```bash
 pnpm install
@@ -354,7 +384,7 @@ pnpm verify   # typecheck everything + full test suite + production web build
 ## Tests
 
 ```bash
-pnpm test                        # 122 tests: protocol · token · gateway · wallet-core · client · server · relay
+pnpm test                        # 178 tests: protocol · token · gateway · wallet-core · client · server · relay
 pnpm --filter @clasp/web test    # web logic suite
 pnpm -r --if-present run typecheck
 ```
