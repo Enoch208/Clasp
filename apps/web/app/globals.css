@@ -1,7 +1,4 @@
 @import "tailwindcss";
-@import "./styles/hover-grid.css";
-@import "./styles/landing.css";
-@import "./styles/clasp.css";
 @import "./styles/app.css";
 @import "./styles/sky.css";
 @import "./styles/sky-hero.css";

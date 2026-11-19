@@ -108,7 +108,7 @@ export default function DashboardPage() {
                 {exported ? "Statement downloaded ✓" : exporting ? "Signing…" : "Export signed statement"}
               </Button>
               <Button variant="danger" block disabled={state !== "ACTIVE"} onClick={() => void revoke()}>
-                <Power size={16} strokeWidth={2.5} /> Revoke session
+                <Power size={16} strokeWidth={2.5} /> {state === "ACTIVE" ? "Revoke session" : state === "REVOKED" ? "Session revoked" : "Session expired"}
               </Button>
             </Card>
             {state === "ACTIVE" ? <HeldPayments holds={store.holds} now={now} /> : null}

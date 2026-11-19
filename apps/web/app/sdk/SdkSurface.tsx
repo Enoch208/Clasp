@@ -6,7 +6,7 @@ import { ConnectFiberWalletButton, useClaspSession } from "@useclasp/react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
-import { CheckCircle2, Link2, ShieldCheck } from "@/components/icons";
+import { CheckCircle2, Link2, Lock, ShieldCheck } from "@/components/icons";
 import { formatCkb, shortId, translatePermission } from "@/lib/format";
 
 const PRICE = "100000000";
@@ -57,7 +57,7 @@ export function SdkSurface({ serverUrl }: { serverUrl: string }) {
 
   return (
     <div className="grid-2">
-      <Card title="Integration" right={<Tag tone="ok">🔒 relay-blind</Tag>}>
+      <Card title="Integration" right={<Tag tone="ok"><Lock size={12} strokeWidth={2.75} /> Relay-blind</Tag>}>
         <pre className="codeblock">{SNIPPET}</pre>
         <p className="pay-note">
           With <code className="mono">sealed: true</code>, each payment is encrypted end-to-end to the wallet core

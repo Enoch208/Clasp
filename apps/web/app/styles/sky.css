@@ -1,7 +1,8 @@
-.sky {
+:root {
   --sky-black: #000;
   --sky-night: #101113;
   --sky-ink: #1f2125;
+  --sky-panel: #232528;
   --sky-graphite: #2b2d30;
   --sky-iron: #353739;
   --sky-slate: #3f4142;
@@ -28,6 +29,9 @@
   --sky-ease-flip: cubic-bezier(0.215, 0.61, 0.355, 1);
   --sky-gutter: 2.5rem;
   --sky-hero-height: 100vh;
+}
+
+.sky {
   position: relative;
   background: var(--sky-ink);
   color: var(--sky-bone);
@@ -40,38 +44,38 @@
   text-rendering: optimizeLegibility;
 }
 
-.sky *,
-.sky *::before,
-.sky *::after {
+:where(.sky) *,
+:where(.sky) *::before,
+:where(.sky) *::after {
   box-sizing: border-box;
 }
 
-.sky h1,
-.sky h2,
-.sky h3 {
+:where(.sky) h1,
+:where(.sky) h2,
+:where(.sky) h3 {
   margin: 0;
   font-family: var(--sky-font-serif);
   font-weight: 400;
   font-style: normal;
 }
 
-.sky h2 {
+:where(.sky) h2 {
   font-size: 4.25rem;
   line-height: 1;
   letter-spacing: -0.03em;
 }
 
-.sky h3 {
+:where(.sky) h3 {
   font-size: 2rem;
   line-height: 1;
 }
 
-.sky p {
+:where(.sky) p {
   margin: 0;
   line-height: 1.4;
 }
 
-.sky a {
+:where(.sky) a {
   color: inherit;
   text-decoration: none;
 }
@@ -92,6 +96,12 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
+}
+
+html,
+body {
+  overflow-x: clip;
+  background: var(--sky-ink);
 }
 
 html.lenis,
@@ -325,7 +335,7 @@ html.lenis body {
     --sky-gutter: 1.25rem;
   }
 
-  .sky h2 {
+  :where(.sky) h2 {
     font-size: 3.5rem;
   }
 
@@ -335,7 +345,7 @@ html.lenis body {
 }
 
 @media (max-width: 767px) {
-  .sky h2 {
+  :where(.sky) h2 {
     font-size: 2.5rem;
   }
 }
