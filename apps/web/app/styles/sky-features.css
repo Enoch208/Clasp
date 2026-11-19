@@ -1,0 +1,308 @@
+.sky-features {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  color: var(--sky-black);
+}
+
+.sky-features__heading {
+  max-width: 48rem;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.sky-features__heading h2 {
+  font-size: 6.875rem;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+}
+
+.sky-features__kicker {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 2rem;
+  line-height: 0.9;
+  letter-spacing: -0.01em;
+}
+
+.sky-features__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 72.5rem;
+  margin: 5rem auto 0;
+  border: 1px solid var(--sky-ink);
+}
+
+.sky-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  height: 100%;
+  padding: 1.25rem;
+}
+
+.sky-feature--mid {
+  border-inline: 1px solid var(--sky-ink);
+}
+
+.sky-feature h3 {
+  max-width: 16rem;
+}
+
+.sky-feature__art {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-inline: -1.25rem;
+  padding-inline: 1.25rem;
+  min-height: 15rem;
+  justify-content: center;
+}
+
+.sky-sketch-hatch {
+  flex: none;
+  width: 1.75rem;
+  align-self: stretch;
+  background-image: repeating-linear-gradient(90deg, var(--sky-ink) 0 1px, transparent 1px 4px);
+}
+
+.sky-sketch-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  min-height: 2.6rem;
+}
+
+.sky-sketch-avatar {
+  flex: none;
+  width: 1.75rem;
+  color: var(--sky-ink);
+}
+
+.sky-sketch-bubble {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--sky-ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.sky-sketch-status {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.6rem;
+  background: var(--sky-ink);
+  font-family: var(--sky-font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.sky-sketch-status--ok {
+  color: var(--sky-green);
+}
+
+.sky-sketch-status--no {
+  color: var(--sky-red);
+}
+
+.sky-sketch-status--hold {
+  color: var(--sky-blue);
+}
+
+.sky-sketch-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.25rem 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--sky-ink);
+}
+
+.sky-sketch-card::before,
+.sky-sketch-card::after {
+  content: "";
+  position: absolute;
+  border-right: 1px solid var(--sky-ink);
+  border-bottom: 1px solid var(--sky-ink);
+  pointer-events: none;
+}
+
+.sky-sketch-card::before {
+  inset: 4px -5px -5px 4px;
+}
+
+.sky-sketch-card::after {
+  inset: 8px -9px -9px 8px;
+}
+
+.sky-sketch-card--shift {
+  margin-left: 2.5rem;
+}
+
+.sky-sketch-card__name {
+  font-family: var(--sky-font-grotesk);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.sky-sketch-card__bars {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+.sky-sketch-card__bars i {
+  display: block;
+  height: 3px;
+  background: var(--sky-ink);
+}
+
+.sky-sketch-card__score {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+}
+
+.sky-sketch-card__amount {
+  font-family: var(--sky-font-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sky-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  color: var(--sky-black);
+  font-family: var(--sky-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sky-chip--ok {
+  background: var(--sky-green);
+}
+
+.sky-chip--hold {
+  background: var(--sky-blue);
+}
+
+.sky-chip--no {
+  background: var(--sky-red);
+}
+
+.sky-chip--warn {
+  background: var(--sky-orange);
+}
+
+.sky-chip--quiet {
+  background: var(--sky-bone);
+}
+
+.sky-sketch-timeline {
+  position: relative;
+  display: grid;
+  gap: 1.1rem;
+  padding-left: 0.25rem;
+}
+
+.sky-sketch-timeline::before {
+  content: "";
+  position: absolute;
+  top: 1.5rem;
+  bottom: 1.5rem;
+  left: 2.05rem;
+  width: 1px;
+  background: var(--sky-ink);
+}
+
+.sky-sketch-event {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3.75rem 1fr;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sky-sketch-event__node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.sky-sketch-event__dot {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--sky-ink);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.35);
+  color: var(--sky-ink);
+}
+
+.sky-sketch-event__lines {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.sky-sketch-event__lines i {
+  display: block;
+  height: 3px;
+  background: var(--sky-ink);
+}
+
+.sky-sketch-event__meta {
+  font-family: var(--sky-font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+}
+
+.sky-feature__text {
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+@media (max-width: 991px) {
+  .sky-features__heading h2 {
+    font-size: 5rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .sky-features__heading h2 {
+    font-size: 2.75rem;
+  }
+
+  .sky-features__kicker {
+    font-size: 1.5rem;
+  }
+
+  .sky-features__grid {
+    grid-template-columns: minmax(0, 1fr);
+    margin-top: 3rem;
+  }
+
+  .sky-feature--mid {
+    border-inline: 0;
+    border-block: 1px solid var(--sky-ink);
+  }
+
+  .sky-feature {
+    padding-inline: 1rem;
+  }
+}

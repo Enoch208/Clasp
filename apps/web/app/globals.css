@@ -3,6 +3,12 @@
 @import "./styles/landing.css";
 @import "./styles/clasp.css";
 @import "./styles/app.css";
+@import "./styles/sky.css";
+@import "./styles/sky-hero.css";
+@import "./styles/sky-attacks.css";
+@import "./styles/sky-features.css";
+@import "./styles/sky-paths.css";
+@import "./styles/sky-closing.css";
 
 @theme inline {
   --font-sans: var(--font-inter);

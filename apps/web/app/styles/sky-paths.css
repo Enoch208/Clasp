@@ -1,0 +1,226 @@
+.sky-paths {
+  position: relative;
+  background: var(--sky-ink);
+}
+
+.sky-paths__texture {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.sky-paths__grid {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 5rem;
+  align-items: start;
+}
+
+.sky-paths__menu {
+  position: sticky;
+  top: 5.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: calc(100vh - 95px);
+  color: var(--sky-bone);
+}
+
+.sky-paths__menu h2 {
+  margin-bottom: 3rem;
+}
+
+.sky-paths__tabs {
+  display: flex;
+  flex-direction: column;
+}
+
+.sky-tab {
+  display: block;
+  width: 100%;
+  padding: 1.5rem 0;
+  border: 0;
+  border-top: 1px solid var(--sky-slate);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+.sky-tab:last-child {
+  border-bottom: 1px solid var(--sky-slate);
+}
+
+.sky-tab__heading {
+  display: block;
+  color: var(--sky-stone);
+  font-family: var(--sky-font-grotesk);
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  text-transform: uppercase;
+  transition: color 0.3s;
+}
+
+.sky-tab__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: -1rem;
+  transition: grid-template-rows 0.3s, opacity 0.3s, margin 0.3s;
+}
+
+.sky-tab__body > span {
+  display: block;
+  overflow: hidden;
+  color: var(--sky-ash);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.sky-tab__body strong {
+  color: var(--sky-bone);
+}
+
+.sky-tab[aria-selected="true"] {
+  border-top: 2px solid var(--sky-tab-tone, var(--sky-bone));
+}
+
+.sky-tab[aria-selected="true"] .sky-tab__heading {
+  color: var(--sky-tab-tone, var(--sky-bone));
+}
+
+.sky-tab[aria-selected="true"] .sky-tab__body {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: 1rem;
+}
+
+.sky-tab--pay {
+  --sky-tab-tone: var(--sky-green);
+}
+
+.sky-tab--hold {
+  --sky-tab-tone: var(--sky-blue);
+}
+
+.sky-tab--block {
+  --sky-tab-tone: var(--sky-red);
+}
+
+.sky-paths__content {
+  position: relative;
+  min-height: calc(300vh - 200px);
+}
+
+.sky-paths__anchors {
+  position: absolute;
+  inset: 0;
+}
+
+.sky-paths__anchor {
+  height: calc(100vh - 95px);
+}
+
+.sky-paths__art {
+  position: sticky;
+  top: 5.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(100vh - 95px);
+}
+
+.sky-diagram {
+  width: 100%;
+  max-width: 38rem;
+  height: auto;
+  overflow: visible;
+}
+
+.sky-diagram text {
+  font-family: var(--sky-font-mono);
+}
+
+.sky-diagram__state {
+  opacity: 0;
+  transform: scale(0.94);
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  transition: opacity 0.45s ease-out, transform 0.45s var(--sky-ease-flip);
+}
+
+.sky-diagram[data-state="pay"] .sky-diagram__state--pay,
+.sky-diagram[data-state="hold"] .sky-diagram__state--hold,
+.sky-diagram[data-state="block"] .sky-diagram__state--block {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.sky-diagram__core {
+  transition: fill 0.45s ease-out;
+}
+
+.sky-diagram[data-state="pay"] .sky-diagram__core {
+  fill: var(--sky-green);
+}
+
+.sky-diagram[data-state="hold"] .sky-diagram__core {
+  fill: var(--sky-blue);
+}
+
+.sky-diagram[data-state="block"] .sky-diagram__core {
+  fill: var(--sky-red);
+}
+
+.sky-diagram__orbit circle {
+  fill: none;
+  stroke: var(--sky-stone);
+  stroke-width: 1;
+}
+
+.sky-paths__mobile-art {
+  display: none;
+}
+
+@media (max-width: 991px) {
+  .sky-paths__grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .sky-paths__menu {
+    position: static;
+    height: auto;
+  }
+
+  .sky-paths__menu h2 {
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  .sky-paths__content {
+    display: none;
+  }
+
+  .sky-paths__mobile-art {
+    display: flex;
+    justify-content: center;
+    padding-bottom: 3rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sky-diagram__state,
+  .sky-diagram__core,
+  .sky-tab__body {
+    transition: none;
+  }
+}

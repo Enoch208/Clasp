@@ -1,0 +1,292 @@
+.sky-hero-bg {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 0;
+  height: var(--sky-hero-height);
+  overflow: hidden;
+}
+
+@media (min-width: 992px) {
+  .sky-hero-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgb(255 255 255 / 0) 58%, rgb(255 255 255 / 0.3) 80%, rgb(255 255 255 / 0.3) 100%);
+    pointer-events: none;
+  }
+}
+
+.sky-hero-wrap {
+  position: relative;
+  z-index: 3;
+  min-height: calc(100vh - 10rem);
+}
+
+.sky-hero {
+  padding-top: 3rem;
+}
+
+.sky-hero__grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 0.25fr;
+  align-items: stretch;
+  min-height: calc(100vh - 11.5rem);
+  color: var(--sky-ink);
+}
+
+.sky-hero__content,
+.sky-nav {
+  font-size: 1rem;
+}
+
+@media (max-width: 1920px) {
+  .sky-hero__content,
+  .sky-nav {
+    font-size: calc(0.4375rem + 0.46875vw);
+  }
+}
+
+@media (max-width: 1280px) {
+  .sky-hero__content,
+  .sky-nav {
+    font-size: calc(0.2607758620689655rem + 0.689655172413793vw);
+  }
+}
+
+@media (max-width: 990px) {
+  .sky-hero__content,
+  .sky-nav {
+    font-size: 1rem;
+  }
+}
+
+.sky-hero__content {
+  position: relative;
+  height: 100%;
+  padding: 2rem 0 2rem 1.25rem;
+}
+
+.sky-hero__title {
+  font-size: 11em;
+  line-height: 1;
+  letter-spacing: -0.015em;
+}
+
+.sky-hero__title > span {
+  display: block;
+  white-space: nowrap;
+}
+
+.sky-hero__title .sky-hero__indent {
+  margin-left: 3.125rem;
+}
+
+.sky-hero__cells {
+  position: relative;
+  display: grid;
+  grid-auto-rows: max-content;
+  height: 100%;
+}
+
+.sky-hero__divider {
+  display: none;
+}
+
+.sky-hero__cell {
+  position: relative;
+  padding: 1.25rem;
+  font-size: 1.125rem;
+  line-height: 1.3333;
+}
+
+.sky-hero__cell:first-child {
+  padding-top: 3.75rem;
+}
+
+.sky-hero__cell a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.sky-hero__more {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 0.5rem;
+  font-family: var(--sky-font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--sky-black);
+  text-decoration: none !important;
+}
+
+.sky-hero__more:hover {
+  color: var(--sky-cobalt);
+}
+
+.sky-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin-top: -2.6rem;
+  overflow: clip;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.sky-nav__bg {
+  position: absolute;
+  inset: 0;
+  background: var(--sky-night);
+  transform: translateY(100%);
+  will-change: transform;
+}
+
+.sky-nav__spacer {
+  position: relative;
+  height: 2.5rem;
+}
+
+.sky-nav__grid {
+  position: relative;
+  display: flex;
+  width: 100%;
+  max-width: 85rem;
+  margin-inline: auto;
+  color: var(--sky-ink);
+  pointer-events: auto;
+}
+
+.sky-nav__brand {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  width: 80%;
+  padding: 1.25rem;
+  border: 1px solid transparent;
+  border-right: 0;
+}
+
+.sky-nav__logo {
+  display: flex;
+  align-items: center;
+  width: 10.625rem;
+  color: inherit;
+}
+
+.sky-nav__logo svg {
+  width: 100%;
+  height: auto;
+}
+
+.sky-nav__icon {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  color: inherit;
+}
+
+.sky-nav__icon svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+.sky-nav__cta {
+  position: relative;
+  display: flex;
+  width: 20%;
+  border: 1px solid var(--sky-night);
+}
+
+.sky-nav__cta .sky-btn {
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  font-size: 1em;
+  color: var(--sky-bone);
+}
+
+@media (max-width: 991px) {
+  .sky-hero-wrap {
+    min-height: calc(100vh - 15rem);
+  }
+
+  .sky-hero__grid {
+    grid-template-columns: 1fr;
+    align-content: space-between;
+  }
+
+  .sky-hero__title {
+    font-size: 17vw;
+  }
+
+  .sky-hero__cell {
+    font-size: 1.1rem;
+  }
+
+  .sky-hero__cell:first-child {
+    padding-top: 1.25rem;
+  }
+
+  .sky-hero__divider {
+    display: block;
+  }
+
+  .sky-nav__logo {
+    width: 9rem;
+  }
+
+  .sky-nav__cta {
+    width: 50%;
+  }
+}
+
+@media (max-width: 767px) {
+  .sky-hero__grid {
+    min-height: auto;
+  }
+
+  .sky-hero__title {
+    font-size: 15.5vw;
+  }
+
+  .sky-hero__title .sky-hero__indent {
+    margin-left: 1rem;
+  }
+
+  .sky-nav__logo {
+    display: none;
+  }
+
+  .sky-nav__icon {
+    display: flex;
+  }
+
+  .sky-nav__brand {
+    padding-block: 0.75rem;
+  }
+
+  .sky-nav__cta {
+    width: 60%;
+  }
+
+  .sky-nav__cta .sky-btn {
+    padding-inline: 0.75rem;
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: 479px) {
+  .sky-hero__content {
+    padding-left: 1rem;
+  }
+
+  .sky-hero__cell {
+    padding-inline: 1rem;
+  }
+}

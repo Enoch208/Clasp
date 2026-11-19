@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Inter, Space_Grotesk, JetBrains_Mono, Instrument_Serif, Space_Mono } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -15,6 +15,18 @@ const spaceGrotesk = Space_Grotesk({
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   subsets: ["latin"],
+});
+
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: "400",
+});
+
+const spaceMono = Space_Mono({
+  variable: "--font-space-mono",
+  subsets: ["latin"],
+  weight: ["400", "700"],
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://useclasp.xyz";
@@ -47,7 +59,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable} ${spaceMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>
     </html>
