@@ -35,9 +35,14 @@ For a wallet you actually use, set `CLASP_OWNER_PUBKEYS` to your owner key so on
 
 ## 2. Install the SDK
 
+In a new folder:
+
 ```bash
+npm init -y && npm pkg set type=module
 npm install @useclasp/client
 ```
+
+`type=module` matters: the script below uses top-level `await`.
 
 ## 3. Pair, pay, and handle a held payment
 
@@ -89,6 +94,19 @@ try {
   console.log("approved and settled", receipt.amount, session.verifyReceipt(receipt));
 }
 ```
+
+Save it as `agent.ts` and run it:
+
+```bash
+npx tsx agent.ts
+```
+
+```
+succeeded true
+approved and settled 80000000 true
+```
+
+The first line is the small payment going straight through. The second is the 0.8 CKB payment that crossed the 0.5 CKB threshold, waited for the owner's signed approval, then settled. `true` means each receipt verified against the wallet key.
 
 `approve` is the seam between the app and the user's wallet. Here both halves run in one script so you can see the whole flow; in a real app the request goes to the user's wallet, which holds the owner key and signs. The owner can only **narrow** what the app asked for: `wallet.approve()` refuses to add permissions, raise limits, or extend the expiry.
 
