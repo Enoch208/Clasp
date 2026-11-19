@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="apps/web/public/clasp-3d.png" alt="Clasp" width="180" />
+<img src="docs/brand/clasp-banner.jpg" alt="Clasp: permissions and spend limits on Fiber" width="720" />
 
 # Clasp
 
